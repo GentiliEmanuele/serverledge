@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/docker/docker/api/types/image"
 	"io"
 	"log"
 	"strings"
@@ -41,8 +40,8 @@ func InitDockerContainerFactory() *DockerFactory {
 	return dockerFact
 }
 
-func (cf *DockerFactory) Create(image string, opts *ContainerOptions) (ContainerID, error) {
-	var img string
+func (cf *DockerFactory) Create(image Image, opts *ContainerOptions) (ContainerID, error) {
+	img := image.RemoteImage
 
 	if !cf.HasImage(image) {
 		img, _ = cf.PullImage(image)
