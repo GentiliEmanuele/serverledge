@@ -3,11 +3,12 @@ package container
 import (
 	"context"
 	"fmt"
-	"github.com/docker/docker/api/types/image"
 	"io"
 	"log"
 	"strings"
 	"sync"
+
+	"github.com/docker/docker/api/types/image"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -32,9 +33,12 @@ func InitDockerContainerFactory() *DockerFactory {
 	return dockerFact
 }
 
-func (cf *DockerFactory) Create(image string, opts *ContainerOptions) (ContainerID, error) {
-	if !cf.HasImage(image) {
-		_ = cf.PullImage(image)
+func (cf *DockerFactory) Create(image Image, opts *ContainerOptions) (ContainerID, error) {
+	img := image.RemoteImage
+
+	// If local image wasn't be pulled and remote image wasn't be pulled, pull image
+	if !cf.HasImage(image.LocalImage) && !cf.HasImage(image.RemoteImage) {
+		img, _ = cf.PullImage(image)
 		// error ignored, as we might still have a stale copy of the image
 	}
 
@@ -45,7 +49,7 @@ func (cf *DockerFactory) Create(image string, opts *ContainerOptions) (Container
 	}
 
 	resp, err := cf.cli.ContainerCreate(cf.ctx, &container.Config{
-		Image: image,
+		Image: img,
 		Cmd:   opts.Cmd,
 		Env:   opts.Env,
 		Tty:   false,
@@ -110,10 +114,20 @@ func (cf *DockerFactory) HasImage(img string) bool {
 	return false
 }
 
-func (cf *DockerFactory) PullImage(img string) error {
-	pullResp, err := cf.cli.ImagePull(cf.ctx, img, image.PullOptions{})
+func (cf *DockerFactory) PullImage(img Image) (string, error) {
+	// Final used image
+	usedImage := img.LocalImage
+
+	// Try to pull first from local registry
+	pullResp, err := cf.cli.ImagePull(cf.ctx, img.LocalImage, image.PullOptions{})
 	if err != nil {
-		return fmt.Errorf("Could not pull image '%s': %v", img, err)
+		// If an error occur try to pull from remote registry
+		pullResp, err = cf.cli.ImagePull(cf.ctx, img.RemoteImage, image.PullOptions{})
+		if err != nil {
+			return "", fmt.Errorf("Could not pull image '%s': %v", img.RemoteImage, err)
+		}
+
+		usedImage = img.RemoteImage
 	}
 
 	defer func(pullResp io.ReadCloser) {
@@ -122,11 +136,12 @@ func (cf *DockerFactory) PullImage(img string) error {
 			log.Printf("Could not close the docker image pull response\n")
 		}
 	}(pullResp)
+
 	// This seems to be necessary to wait for the img to be pulled:
 	_, _ = io.Copy(io.Discard, pullResp)
-	log.Printf("Pulled image: %s\n", img)
-	refreshedImages[img] = true
-	return nil
+	log.Printf("Pulled image: %s\n", usedImage)
+	refreshedImages[usedImage] = true
+	return usedImage, nil
 }
 
 func (cf *DockerFactory) GetIPAddress(contID ContainerID) (string, error) {
