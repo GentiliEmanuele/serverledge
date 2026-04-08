@@ -38,7 +38,7 @@ func getImageForFunction(fun *function.Function) (Image, error) {
 	var image Image
 	if fun.Runtime == CUSTOM_RUNTIME {
 		image = Image{
-			LocalImage:  fmt.Sprintf("localhost:8080/serverledge/%s", path.Base(fun.CustomImage)),
+			LocalImage:  fmt.Sprintf("localhost:5000/%s", path.Base(fun.CustomImage)),
 			RemoteImage: fun.CustomImage,
 		}
 	} else {

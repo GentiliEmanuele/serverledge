@@ -19,14 +19,14 @@ var refreshedImages = map[string]bool{}
 var RuntimeToInfo = map[string]RuntimeInfo{
 	"python310": {
 		Image{
-			"localhost:8080/serverledge/python310",
+			"localhost:5000/python310",
 			"grussorusso/serverledge-python310",
 		},
 		[]string{"python", "/entrypoint.py"},
 		true},
 	"nodejs17ng": {
 		Image{
-			"localhost:8080/serverledge/nodejs17ng",
+			"localhost:5000/nodejs17ng",
 			"grussorusso/serverledge-nodejs17ng",
 		},
 		[]string{},
