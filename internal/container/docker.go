@@ -132,6 +132,7 @@ func (cf *DockerFactory) PullImage(img string) error {
 			log.Printf("Could not close the docker image pull response\n")
 		}
 	}(pullResp)
+
 	// This seems to be necessary to wait for the img to be pulled:
 	_, _ = io.Copy(io.Discard, pullResp)
 	log.Printf("Pulled image: %s\n", img)
