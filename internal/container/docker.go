@@ -34,12 +34,16 @@ func InitDockerContainerFactory() *DockerFactory {
 }
 
 func (cf *DockerFactory) Create(image Image, opts *ContainerOptions) (ContainerID, error) {
-	img := image.RemoteImage
+	var img string
 
 	// If local image wasn't be pulled and remote image wasn't be pulled, pull image
 	if !cf.HasImage(image.LocalImage) && !cf.HasImage(image.RemoteImage) {
 		img, _ = cf.PullImage(image)
 		// error ignored, as we might still have a stale copy of the image
+	} else if cf.HasImage(image.LocalImage) {
+		img = image.LocalImage
+	} else if cf.HasImage(image.RemoteImage) {
+		img = image.RemoteImage
 	}
 
 	contResources := container.Resources{Memory: opts.MemoryMB * 1048576} // convert to bytes
