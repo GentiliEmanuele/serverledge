@@ -120,23 +120,10 @@ func (cf *DockerFactory) HasImage(img string) bool {
 	return false
 }
 
-func (cf *DockerFactory) PullImage(img string) (string, error) {
-	// Format the name for local image
-	localImage := strings.Join([]string{"distribution:5000", img}, "/")
-
-	// Try to pull first from local registry
-	pullResp, err := cf.cli.ImagePull(cf.ctx, localImage, image.PullOptions{})
+func (cf *DockerFactory) PullImage(img string) error {
+	pullResp, err := cf.cli.ImagePull(cf.ctx, img, image.PullOptions{})
 	if err != nil {
-		// If an error occur try to pull from remote registry
-		pullResp, err = cf.cli.ImagePull(cf.ctx, img, image.PullOptions{})
-		if err != nil {
-			return img, fmt.Errorf("Could not pull image '%s': %v", img, err)
-		}
-
-		// If the image was pulled from Docker Hub the image is the latter specified in runtime
-		// In this case is not needed to tag the images
-	} else {
-		img = localImage
+		return fmt.Errorf("Could not pull image '%s': %v", img, err)
 	}
 
 	defer func(pullResp io.ReadCloser) {
@@ -145,13 +132,11 @@ func (cf *DockerFactory) PullImage(img string) (string, error) {
 			log.Printf("Could not close the docker image pull response\n")
 		}
 	}(pullResp)
-
 	// This seems to be necessary to wait for the img to be pulled:
 	_, _ = io.Copy(io.Discard, pullResp)
 	log.Printf("Pulled image: %s\n", img)
 	refreshedImages[img] = true
-
-	return img, nil
+	return nil
 }
 
 func (cf *DockerFactory) GetIPAddress(contID ContainerID) (string, error) {

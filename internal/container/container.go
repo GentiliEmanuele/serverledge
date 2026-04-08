@@ -8,8 +8,8 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"net/url"
 	"time"
+	"net/url"
 
 	"github.com/serverledge-faas/serverledge/internal/function"
 
