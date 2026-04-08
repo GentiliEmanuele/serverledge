@@ -1,0 +1,55 @@
+services:
+  quay-db:
+    container_name: quay-db
+    hostname: quaydb
+    image: postgres:12.1
+    environment:
+      POSTGRES_USER: "quay"
+      POSTGRES_PASSWORD: "quay"
+      POSTGRES_DB: "quay"
+    volumes:
+      - "./local-dev/init/pg_bootstrap.sql:/docker-entrypoint-initdb.d"
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quay -d quay"]
+      interval: 10s
+      timeout: 9s
+      retries: 3
+      start_period: 10s
+    networks:
+      - quay-net
+
+  redis:
+    container_name: quay-redis
+    hostname: redis
+    image: redis:latest
+    command: ["redis-server", "/etc/redis/redis.conf"]
+    volumes:
+      - ./redis.conf:/etc/redis/redis.conf
+    ports:
+      - "6379:6379"
+    networks:
+      - quay-net
+
+  quay:
+    container_name: quay-quay
+    hostname: quay
+    image: registry.redhat.io/quay/quay-rhel9:v3.17
+    volumes:
+      - ./conf:/conf/stack:ro
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+    environment:
+      DEBUGLOG: "true"
+      IGNORE_VALIDATION: "true"
+    networks:
+      - quay-net
+    depends_on:
+      - redis
+      - quay-db
+
+networks:
+  quay-net:
+    driver: bridge
