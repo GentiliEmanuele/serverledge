@@ -23,7 +23,7 @@ func CreateContainer(f *function.Function, forceImagePull bool) (*Container, err
 		return nil, err
 	}
 	if forceImagePull {
-		err := cf.PullImage(image)
+		image, err = cf.PullImage(image)
 		if err != nil {
 			return nil, err
 		}
