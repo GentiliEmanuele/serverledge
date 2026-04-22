@@ -11,7 +11,7 @@ type Factory interface {
 	Start(ContainerID) error
 	Destroy(ContainerID) error
 	HasImage(string) bool
-	PullImage(string) error
+	PullImage(string) (string, error)
 	GetIPAddress(ContainerID) (string, error)
 	GetMemoryMB(id ContainerID) (int64, error)
 	GetLog(id ContainerID) (string, error)
