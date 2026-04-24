@@ -2,13 +2,16 @@ package container
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/docker/docker/api/types/image"
+	"github.com/serverledge-faas/serverledge/utils"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -114,8 +117,13 @@ func (cf *DockerFactory) HasImage(img string) bool {
 }
 
 func (cf *DockerFactory) PullImage(img string) (string, error) {
-	// Format the name for local image
-	localImage := strings.Join([]string{"distribution:5000", img}, "/")
+	// Get registry info from etcd
+	localRegistryAddress, err := getLocalRegistryAddress()
+	if err != nil {
+		return img, fmt.Errorf("Could not get local registry address from etcd: %v", err)
+	}
+	// Format the name for local image using local registry address
+	localImage := strings.Join([]string{localRegistryAddress, img}, "/")
 
 	// Try to pull first from local registry
 	pullResp, err := cf.cli.ImagePull(cf.ctx, localImage, image.PullOptions{})
@@ -145,6 +153,30 @@ func (cf *DockerFactory) PullImage(img string) (string, error) {
 	refreshedImages[img] = true
 
 	return img, nil
+}
+
+func getLocalRegistryAddress() (string, error) {
+	cli, err := utils.GetEtcdClient()
+	if err != nil {
+		return "", err
+	}
+
+	// Create a context with timer for the read
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	resp, err := cli.Get(ctx, "registry")
+	if err != nil {
+		return "", err
+	}
+
+	// Check if the key exists
+	if len(resp.Kvs) == 0 {
+		return "", errors.New("no registry found")
+	}
+
+	// Return the key value
+	return string(resp.Kvs[0].Value), nil
 }
 
 func (cf *DockerFactory) GetIPAddress(contID ContainerID) (string, error) {
