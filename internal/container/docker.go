@@ -3,6 +3,7 @@ package container
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -11,8 +12,10 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types/image"
+	"time"
 
 	"github.com/docker/docker/api/types/image"
+	"github.com/serverledge-faas/serverledge/utils"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -120,10 +123,28 @@ func (cf *DockerFactory) HasImage(img string) bool {
 	return false
 }
 
-func (cf *DockerFactory) PullImage(img string) error {
-	pullResp, err := cf.cli.ImagePull(cf.ctx, img, image.PullOptions{})
+func (cf *DockerFactory) PullImage(img string) (string, error) {
+	// Get registry info from etcd
+	localRegistryAddress, err := getLocalRegistryAddress()
 	if err != nil {
-		return fmt.Errorf("Could not pull image '%s': %v", img, err)
+		return img, fmt.Errorf("Could not get local registry address from etcd: %v", err)
+	}
+	// Format the name for local image using local registry address
+	localImage := strings.Join([]string{localRegistryAddress, img}, "/")
+
+	// Try to pull first from local registry
+	pullResp, err := cf.cli.ImagePull(cf.ctx, localImage, image.PullOptions{})
+	if err != nil {
+		// If an error occur try to pull from remote registry
+		pullResp, err = cf.cli.ImagePull(cf.ctx, img, image.PullOptions{})
+		if err != nil {
+			return img, fmt.Errorf("Could not pull image '%s': %v", img, err)
+		}
+
+		// If the image was pulled from Docker Hub the image is the latter specified in runtime
+		// In this case is not needed to tag the images
+	} else {
+		img = localImage
 	}
 
 	defer func(pullResp io.ReadCloser) {
@@ -137,7 +158,32 @@ func (cf *DockerFactory) PullImage(img string) error {
 	_, _ = io.Copy(io.Discard, pullResp)
 	log.Printf("Pulled image: %s\n", img)
 	refreshedImages[img] = true
-	return nil
+
+	return img, nil
+}
+
+func getLocalRegistryAddress() (string, error) {
+	cli, err := utils.GetEtcdClient()
+	if err != nil {
+		return "", err
+	}
+
+	// Create a context with timer for the read
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	resp, err := cli.Get(ctx, "registry")
+	if err != nil {
+		return "", err
+	}
+
+	// Check if the key exists
+	if len(resp.Kvs) == 0 {
+		return "", errors.New("no registry found")
+	}
+
+	// Return the key value
+	return string(resp.Kvs[0].Value), nil
 }
 
 func (cf *DockerFactory) GetIPAddress(contID ContainerID) (string, error) {
