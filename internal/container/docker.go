@@ -127,21 +127,12 @@ func (cf *DockerFactory) PullImage(img string) (string, error) {
 		return img, fmt.Errorf("Could not get local registry address from etcd: %v", err)
 	}
 	// Format the name for local image using local registry address
-	localImage := strings.Join([]string{localRegistryAddress, img}, "/")
+	img = strings.Join([]string{localRegistryAddress, img}, "/")
 
 	// Try to pull first from local registry
-	pullResp, err := cf.cli.ImagePull(cf.ctx, localImage, image.PullOptions{})
+	pullResp, err := cf.cli.ImagePull(cf.ctx, img, image.PullOptions{})
 	if err != nil {
-		// If an error occur try to pull from remote registry
-		pullResp, err = cf.cli.ImagePull(cf.ctx, img, image.PullOptions{})
-		if err != nil {
-			return img, fmt.Errorf("Could not pull image '%s': %v", img, err)
-		}
-
-		// If the image was pulled from Docker Hub the image is the latter specified in runtime
-		// In this case is not needed to tag the images
-	} else {
-		img = localImage
+		return img, fmt.Errorf("Could not pull image '%s': %v", img, err)
 	}
 
 	defer func(pullResp io.ReadCloser) {
