@@ -162,14 +162,6 @@ func (cf *DockerFactory) PullImage(img string) (string, error) {
 		// If the image was pulled from Docker Hub, local registry hasn't the required image, or the local registry is not available.
 		// Try to push the image to the local registry using a goroutine
 		go func() {
-			/*
-				// Create a context for the push request. If goroutine uses the context of the pull request an error (context canceled) occurs.
-				// Context is created with timeout for release the context if the request during more than 10 minutes.
-				ctx, cancel := context.WithTimeout(cf.ctx, 10*time.Minute)
-				defer cancel()
-
-			*/
-
 			// First push the image retag it
 			err := cf.cli.ImageTag(cf.ctx, img, localImage)
 			if err != nil {
