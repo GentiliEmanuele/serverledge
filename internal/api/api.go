@@ -234,7 +234,7 @@ func CreateOrUpdateFunction(c echo.Context) error {
 		f.MaxConcurrency = 1
 	}
 
-	err = f.SaveToEtcd()
+	err = f.SaveToGarage()
 	if err != nil {
 		log.Printf("Failed creation: %v\n", err)
 		return c.JSON(http.StatusServiceUnavailable, "")

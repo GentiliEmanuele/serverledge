@@ -51,7 +51,7 @@ func initializeExamplePyFunction() (*function.Function, error) {
 			AddOutput("n", function.Int{}).
 			Build(),
 	}
-	err = f.SaveToEtcd()
+	err = f.SaveToGarage()
 
 	return &f, err
 }
@@ -83,7 +83,7 @@ func initializeExampleJSFunction() (*function.Function, error) {
 			AddOutput("n", function.Int{}).
 			Build(),
 	}
-	err = f.SaveToEtcd()
+	err = f.SaveToGarage()
 	return &f, err
 }
 
@@ -112,7 +112,7 @@ func InitializePyFunction(name string, handler string, sign *function.Signature)
 		TarFunctionCode: encoded,
 		Signature:       sign,
 	}
-	err = f.SaveToEtcd()
+	err = f.SaveToGarage()
 	return &f, err
 }
 
@@ -140,7 +140,7 @@ func InitializeJavaFunction(name string, handler string, sign *function.Signatur
 		TarFunctionCode: encoded,
 		Signature:       sign,
 	}
-	err = f.SaveToEtcd()
+	err = f.SaveToGarage()
 	return &f, err
 }
 
@@ -172,7 +172,7 @@ func initializeJsFunction(name string, sign *function.Signature) (*function.Func
 		TarFunctionCode: encoded,
 		Signature:       sign,
 	}
-	err = f.SaveToEtcd()
+	err = f.SaveToGarage()
 	return &f, err
 }
 
@@ -208,7 +208,7 @@ func initializePyFunctionFromName(t *testing.T, name string) *function.Function 
 		utils.AssertNil(t, err)
 		f = fd
 	}
-	err := f.SaveToEtcd()
+	err := f.SaveToGarage()
 	utils.AssertNil(t, err)
 	fmt.Printf("Created function %s\n", f.Name)
 	return f

@@ -1,13 +1,17 @@
 package function
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
 	"slices"
+	"io"
 
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/serverledge-faas/serverledge/internal/cache"
 	"github.com/serverledge-faas/serverledge/utils"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -28,6 +32,8 @@ type Function struct {
 	Signature       *Signature
 }
 
+const BucketName = "default-bucket"
+
 func (f *Function) getEtcdKey() string {
 	return getEtcdKey(f.Name)
 }
@@ -46,7 +52,7 @@ func GetFunction(name string) (*Function, bool) {
 	val, found := getFromCache(name)
 	if !found {
 		// cache miss
-		f, response := getFromEtcd(name)
+		f, response := getFromGarage(name)
 		if !response {
 			return nil, false
 		}
@@ -76,46 +82,75 @@ func getFromCache(name string) (*Function, bool) {
 
 }
 
-func getFromEtcd(name string) (*Function, bool) {
-	cli, err := utils.GetEtcdClient()
+// getFromGarage retrieve function infos from Garage
+func getFromGarage(name string) (*Function, bool) {
+	// Get Garage client
+	cli, err := utils.GetGarageClient()
 	if err != nil {
 		return nil, false
 	}
+
+	// Create a context
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	getResponse, err := cli.Get(ctx, getEtcdKey(name))
+
+	// Format key
+	key := fmt.Sprintf("function/%s", name)
+
+	// Retrieve function object from Garage
+	output, err := cli.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(BucketName),
+		Key:    aws.String(key),
+	})
+
 	if err != nil {
-		utils.TriggerEtcdReconnection()
-		log.Printf("etcd get failed: %v", err)
 		return nil, false
-	} else if len(getResponse.Kvs) < 1 {
+	}
+
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+
+		}
+	}(output.Body)
+
+	data, err := io.ReadAll(output.Body)
+	if err != nil {
 		return nil, false
 	}
 
 	var f Function
-	err = json.Unmarshal(getResponse.Kvs[0].Value, &f)
-	if err != nil {
+	if err := json.Unmarshal(data, &f); err != nil {
 		return nil, false
 	}
 
 	return &f, true
 }
 
-// SaveToEtcd registers the function to Etcd
-func (f *Function) SaveToEtcd() error {
-	cli, err := utils.GetEtcdClient()
+// SaveToGarage registers the function to Garage
+func (f *Function) SaveToGarage() error {
+	// Get Garage client
+	cli, err := utils.GetGarageClient()
 	if err != nil {
 		return err
 	}
-	ctx := context.TODO()
 
 	payload, err := json.Marshal(*f)
 	if err != nil {
-		return fmt.Errorf("Could not marshal function: %v", err)
+		return fmt.Errorf("could not marshal function: %v", err)
 	}
-	_, err = cli.Put(ctx, f.getEtcdKey(), string(payload))
+
+	// In garage use /function/name as key
+	key := fmt.Sprintf("function/%s", f.Name)
+
+	// Write the function code in Garage
+	_, err = cli.PutObject(context.TODO(), &s3.PutObjectInput{
+		Bucket: aws.String(BucketName),
+		Key:    aws.String(key),
+		Body:   bytes.NewReader(payload),
+	})
+
 	if err != nil {
-		utils.TriggerEtcdReconnection()
-		return fmt.Errorf("Failed Put: %v", err)
+		return fmt.Errorf("failed to save to Garage: %v", err)
 	}
 
 	// Add the function to the local cache
@@ -124,19 +159,21 @@ func (f *Function) SaveToEtcd() error {
 	return nil
 }
 
-// Delete removes a function from Etcd and the local cache.
+// Delete removes a function from Garage and the local cache.
 func (f *Function) Delete() error {
-	cli, err := utils.GetEtcdClient()
+	// Get Garage client
+	cli, err := utils.GetGarageClient()
 	if err != nil {
 		return err
 	}
-	ctx := context.TODO()
 
-	dresp, err := cli.Delete(ctx, f.getEtcdKey())
+	key := fmt.Sprintf("function/%s", f.Name)
+	_, err = cli.DeleteObject(context.TODO(), &s3.DeleteObjectInput{
+		Bucket: aws.String(BucketName),
+		Key:    aws.String(key),
+	})
 	if err != nil {
-		return fmt.Errorf("Failed Delete: %v", err)
-	} else if dresp.Deleted != 1 {
-		fmt.Printf("no function with key '%s' exists", f.getEtcdKey())
+		return fmt.Errorf("failed to delete from Garage: %v", err)
 	}
 
 	// Remove the function from the local cache
