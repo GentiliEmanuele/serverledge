@@ -41,10 +41,9 @@ func InitDockerContainerFactory() *DockerFactory {
 }
 
 func (cf *DockerFactory) Create(image string, opts *ContainerOptions) (ContainerID, error) {
-	var img string
 
 	if !cf.HasImage(image) {
-		img, _ = cf.PullImage(image)
+		image, _ = cf.PullImage(image)
 		// error ignored, as we might still have a stale copy of the image
 	}
 
@@ -55,7 +54,7 @@ func (cf *DockerFactory) Create(image string, opts *ContainerOptions) (Container
 	}
 
 	resp, err := cf.cli.ContainerCreate(cf.ctx, &container.Config{
-		Image: img,
+		Image: image,
 		Cmd:   opts.Cmd,
 		Env:   opts.Env,
 		Tty:   false,
@@ -127,12 +126,21 @@ func (cf *DockerFactory) PullImage(img string) (string, error) {
 		return img, fmt.Errorf("Could not get local registry address from etcd: %v", err)
 	}
 	// Format the name for local image using local registry address
-	img = strings.Join([]string{localRegistryAddress, img}, "/")
+	localImage := strings.Join([]string{localRegistryAddress, img}, "/")
 
 	// Try to pull first from local registry
-	pullResp, err := cf.cli.ImagePull(cf.ctx, img, image.PullOptions{})
+	pullResp, err := cf.cli.ImagePull(cf.ctx, localImage, image.PullOptions{})
 	if err != nil {
-		return img, fmt.Errorf("Could not pull image '%s': %v", img, err)
+		// If an error occur try to pull from remote registry
+		pullResp, err = cf.cli.ImagePull(cf.ctx, img, image.PullOptions{})
+		if err != nil {
+			return img, fmt.Errorf("Could not pull image '%s': %v", img, err)
+		}
+
+		// If the image was pulled from Docker Hub the image is the latter specified in runtime
+		// In this case is not needed to tag the images
+	} else {
+		img = localImage
 	}
 
 	defer func(pullResp io.ReadCloser) {
