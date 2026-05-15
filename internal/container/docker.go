@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -45,10 +44,9 @@ func InitDockerContainerFactory() *DockerFactory {
 }
 
 func (cf *DockerFactory) Create(image string, opts *ContainerOptions) (ContainerID, error) {
-	var img string
 
 	if !cf.HasImage(image) {
-		img, _ = cf.PullImage(image)
+		image, _ = cf.PullImage(image)
 		// error ignored, as we might still have a stale copy of the image
 	}
 
@@ -59,7 +57,7 @@ func (cf *DockerFactory) Create(image string, opts *ContainerOptions) (Container
 	}
 
 	resp, err := cf.cli.ContainerCreate(cf.ctx, &container.Config{
-		Image: img,
+		Image: image,
 		Cmd:   opts.Cmd,
 		Env:   opts.Env,
 		Tty:   false,
@@ -141,6 +139,9 @@ func (cf *DockerFactory) PullImage(img string) (string, error) {
 		if err != nil {
 			return img, fmt.Errorf("Could not pull image '%s': %v", img, err)
 		}
+
+		// If the image was pulled from Docker Hub the image is the latter specified in runtime
+		// In this case is not needed to tag the images
 	} else {
 		img = localImage
 	}
@@ -156,40 +157,6 @@ func (cf *DockerFactory) PullImage(img string) (string, error) {
 	_, _ = io.Copy(io.Discard, pullResp)
 	log.Printf("Pulled image: %s\n", img)
 	refreshedImages[img] = true
-
-	// img != localImage means that the image was pulled from Docker Hub
-	if img != localImage {
-		// If the image was pulled from Docker Hub, local registry hasn't the required image, or the local registry is not available.
-		// Try to push the image to the local registry using a goroutine
-		go func() {
-			// First push the image retag it
-			err := cf.cli.ImageTag(cf.ctx, img, localImage)
-			if err != nil {
-				log.Printf("Could not tag image '%s': %v", img, err)
-				return
-			}
-
-			out, err := cf.cli.ImagePush(cf.ctx, localImage, image.PushOptions{})
-			if err != nil {
-				log.Printf("Could not push image '%s': %v", img, err)
-				return
-			}
-
-			defer func(out io.ReadCloser) {
-				if out != nil {
-					err := out.Close()
-					if err != nil {
-						log.Printf("Could not close the docker image push response")
-					}
-				}
-			}(out)
-
-			_, err = io.Copy(os.Stdout, out)
-			if err != nil {
-				log.Printf("Could not copy the docker image push response")
-			}
-		}()
-	}
 
 	return img, nil
 }
