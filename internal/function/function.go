@@ -4,9 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
-	"slices"
 	"io"
+	"slices"
 
 	"time"
 
