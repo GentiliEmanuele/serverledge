@@ -10,13 +10,10 @@ import (
 	"os"
 	"strings"
 	"sync"
+
 	"time"
 
 	"github.com/docker/docker/api/types/image"
-	"time"
-
-	"github.com/docker/docker/api/types/image"
-	"github.com/serverledge-faas/serverledge/utils"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
