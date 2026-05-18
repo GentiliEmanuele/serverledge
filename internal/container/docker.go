@@ -3,14 +3,13 @@ package container
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/docker/docker/api/types/image"
 
 	"github.com/docker/docker/api/types/image"
 
