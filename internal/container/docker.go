@@ -42,10 +42,8 @@ func InitDockerContainerFactory() *DockerFactory {
 }
 
 func (cf *DockerFactory) Create(image string, opts *ContainerOptions) (ContainerID, error) {
-	var img string
-
 	if !cf.HasImage(image) {
-		img, _ = cf.PullImage(image)
+		image, _ = cf.PullImage(image)
 		// error ignored, as we might still have a stale copy of the image
 	}
 
@@ -56,7 +54,7 @@ func (cf *DockerFactory) Create(image string, opts *ContainerOptions) (Container
 	}
 
 	resp, err := cf.cli.ContainerCreate(cf.ctx, &container.Config{
-		Image: img,
+		Image: image,
 		Cmd:   opts.Cmd,
 		Env:   opts.Env,
 		Tty:   false,
