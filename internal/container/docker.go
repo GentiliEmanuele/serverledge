@@ -1,24 +1,26 @@
 package container
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/docker/docker/api/types/image"
-	regName "github.com/google/go-containerregistry/pkg/name"
-	regRemote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/serverledge-faas/serverledge/utils"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
+	regName "github.com/google/go-containerregistry/pkg/name"
+	regRemote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/serverledge-faas/serverledge/internal/config"
 )
 
@@ -40,7 +42,6 @@ func InitDockerContainerFactory() *DockerFactory {
 }
 
 func (cf *DockerFactory) Create(image string, opts *ContainerOptions) (ContainerID, error) {
-
 	if !cf.HasImage(image) {
 		image, _ = cf.PullImage(image)
 		// error ignored, as we might still have a stale copy of the image
@@ -154,7 +155,46 @@ func (cf *DockerFactory) PullImage(img string) (string, error) {
 	log.Printf("Pulled image: %s\n", img)
 	refreshedImages[img] = true
 
+	// img != localImage means that the image was pulled from Docker Hub
+	if img != localImage {
+		// If the image was pulled from Docker hub require to the registry to pull the image
+		go func() {
+			err = pullRequest(localRegistryAddress, img)
+			if err != nil {
+				log.Printf("Error while communicating with local registry: %v\n", err)
+			}
+		}()
+	}
+
 	return img, nil
+}
+
+func pullRequest(localRegistryAddress, img string) error {
+	// Format the URL using to invoke the API
+	url := fmt.Sprintf("http://%s/pull-image", localRegistryAddress)
+
+	// Define the payload as a map
+	payload := map[string]string{"image": img}
+
+	// Serialize data in json format
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return err
+	}
+
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			log.Printf("Could not close http response\n")
+		}
+	}(resp.Body)
+
+	return nil
 }
 
 func getLocalRegistryAddress() (string, error) {
