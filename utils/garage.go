@@ -8,6 +8,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+
+	sledgeConfig "github.com/serverledge-faas/serverledge/internal/config"
 )
 
 var s3Client *s3.Client = nil
@@ -23,11 +25,10 @@ func GetGarageClient() (*s3.Client, error) {
 		return s3Client, nil
 	}
 
-	// TODO manage keys in better way (by means of config file)
-	endpoint := "http://127.0.0.1:3900"
-	accessKey := "GK845615fa124839a5db2d68043d8ab2ec"
-	secretKey := "6142e5e266de127ce98333c124b6b708751804b54c1e2f697543a3475ba21902"
-	region := "garage"
+	endpoint := sledgeConfig.GetString(sledgeConfig.GARAGE_ENDPOINT, "http://127.0.0.1:3900")
+	accessKey := sledgeConfig.GetString(sledgeConfig.GARAGE_ACCESS_KEY, "")
+	secretKey := sledgeConfig.GetString(sledgeConfig.GARAGE_SECRET_KEY, "")
+	region := sledgeConfig.GetString(sledgeConfig.GARAGE_REGION, "garage")
 
 	// Load base configuration, without resolver
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
