@@ -3,6 +3,13 @@ package config
 // Etcd server hostname
 const ETCD_ADDRESS = "etcd.address"
 
+// Garage endpoint
+const GARAGE_ENDPOINT = "garage.endpoint"
+
+const GARAGE_ACCESS_KEY = "garage.accessKey"
+const GARAGE_SECRET_KEY = "garage.secretKey"
+const GARAGE_REGION = "garage.region"
+
 // exposed port for serverledge APIs
 const API_PORT = "api.port"
 const API_IP = "api.ip"
