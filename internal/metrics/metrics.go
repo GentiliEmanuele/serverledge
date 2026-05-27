@@ -3,10 +3,11 @@ package metrics
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus/push"
 	"log"
 	"os"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus/push"
 
 	"net/http"
 
@@ -181,4 +182,8 @@ func AddFunctionOutputSizeValue(funcName string, size float64) {
 }
 func AddBranchCount(taskId string, nextTaskId string) {
 	metricBranchCount.With(prometheus.Labels{"task": taskId, "next_task": nextTaskId}).Inc()
+}
+
+func AddFunctionCreationTime(funcName string, creationTime float64) {
+	metricInitializationTime.With(prometheus.Labels{"function": funcName}).Observe(creationTime)
 }

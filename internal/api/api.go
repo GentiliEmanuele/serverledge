@@ -15,6 +15,7 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/client"
 	"github.com/serverledge-faas/serverledge/internal/container"
 	"github.com/serverledge-faas/serverledge/internal/function"
+	"github.com/serverledge-faas/serverledge/internal/metrics"
 	"github.com/serverledge-faas/serverledge/internal/node"
 	"github.com/serverledge-faas/serverledge/internal/registration"
 	"github.com/serverledge-faas/serverledge/internal/telemetry"
@@ -234,7 +235,11 @@ func CreateOrUpdateFunction(c echo.Context) error {
 		f.MaxConcurrency = 1
 	}
 
+	start := time.Now()
 	err = f.SaveToGarage()
+	duration := time.Since(start)
+	metrics.AddFunctionCreationTime(f.Name, duration.Seconds())
+
 	if err != nil {
 		log.Printf("Failed creation: %v\n", err)
 		return c.JSON(http.StatusServiceUnavailable, "")
