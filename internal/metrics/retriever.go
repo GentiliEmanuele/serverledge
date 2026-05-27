@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/serverledge-faas/serverledge/internal/registration"
 	"log"
 	"os"
 	"time"
+
+	"github.com/serverledge-faas/serverledge/internal/registration"
 
 	"github.com/prometheus/common/model"
 	"github.com/serverledge-faas/serverledge/internal/config"
@@ -202,6 +203,14 @@ func MetricsRetriever() {
 				log.Printf("Error in retrieveByFunction: %v", err)
 			}
 			retrievedMetrics.AvgEdgeInitTime = avgInitTimeAllNodes
+
+			query = fmt.Sprintf("%s_sum{node=~\"\\\\(%s\\\\).*\"}/%s_count{node=~\"\\\\(%s\\\\).*\"}",
+				CREATION_TIME, localArea, CREATION_TIME, localArea)
+			avgCreationTimeAllNodes, err := retrieveByFunctionAndNode(query, api, ctx)
+			if err != nil {
+				log.Printf("Error in retrieveByFunction: %v", err)
+			}
+			retrievedMetrics.AvgCreationTime = avgCreationTimeAllNodes
 
 			query = fmt.Sprintf("%s{node=~\"\\\\(%s\\\\).*\"}/%s{node=~\"\\\\(%s\\\\).*\"}",
 				COLD_STARTS, localArea, COMPLETIONS, localArea)

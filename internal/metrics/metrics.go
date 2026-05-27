@@ -29,6 +29,7 @@ const (
 	COLD_STARTS         = "cold_starts_count"
 	EXECUTION_TIME      = "execution_time"
 	INITIALIZATION_TIME = "init_time"
+	CREATION_TIME       = "creation_time"
 	OUTPUT_SIZE         = "output_size"
 	BRANCH_COUNT        = "branch_count"
 )
@@ -69,6 +70,7 @@ type RetrievedMetrics struct {
 	AvgRemoteInitTime          map[string]float64
 	AvgEdgeInitTime            map[string]map[string]float64
 	AvgOutputSize              map[string]float64
+	AvgCreationTime            map[string]map[string]float64
 	BranchFrequency            map[string]map[string]float64
 }
 
