@@ -60,6 +60,11 @@ var (
 		Name: BRANCH_COUNT,
 		Help: "Number of executions of a task among multiple alternatives",
 	}, []string{"task", "next_task"})
+	metricCreationTime = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    CREATION_TIME,
+		Help:    "Function creation time",
+		Buckets: durationBuckets,
+	}, []string{"function"})
 )
 
 type RetrievedMetrics struct {
@@ -187,5 +192,5 @@ func AddBranchCount(taskId string, nextTaskId string) {
 }
 
 func AddFunctionCreationTime(funcName string, creationTime float64) {
-	metricInitializationTime.With(prometheus.Labels{"function": funcName}).Observe(creationTime)
+	metricCreationTime.With(prometheus.Labels{"function": funcName}).Observe(creationTime)
 }
