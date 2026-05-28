@@ -29,6 +29,8 @@ type Function struct {
 	CustomImage     string   // used if custom runtime is chosen
 	SupportedArchs  []string // list of supported architectures by the runtime
 	Signature       *Signature
+	CreationTime    float64 // For compare Etcd and Garage
+	GetTime         float64 // For compare Etcd and Garage
 }
 
 const BucketName = "default-bucket"
@@ -51,10 +53,13 @@ func GetFunction(name string) (*Function, bool) {
 	val, found := getFromCache(name)
 	if !found {
 		// cache miss
+		start := time.Now()
 		f, response := getFromGarage(name)
 		if !response {
 			return nil, false
 		}
+		duration := time.Since(start).Seconds()
+		f.GetTime = duration
 		//insert a new element to the cache
 		cache.GetCacheInstance().Set(name, f, cache.DefaultExp)
 		return f, true
@@ -127,6 +132,7 @@ func getFromGarage(name string) (*Function, bool) {
 
 // SaveToGarage registers the function to Garage
 func (f *Function) SaveToGarage() error {
+	start := time.Now()
 	// Get Garage client
 	cli, err := utils.GetGarageClient()
 	if err != nil {
@@ -154,6 +160,9 @@ func (f *Function) SaveToGarage() error {
 
 	// Add the function to the local cache
 	cache.GetCacheInstance().Set(f.Name, f, cache.DefaultExp)
+
+	functionCreationDuration := time.Since(start).Seconds()
+	f.CreationTime = functionCreationDuration
 
 	return nil
 }
