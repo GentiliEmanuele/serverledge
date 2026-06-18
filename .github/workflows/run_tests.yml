@@ -35,6 +35,7 @@ jobs:
 
       - name: Create config file
         run: |
+          sudo mkdir -p /etc/serverledge
           echo "GARAGE_ACCESS_KEY_ID=${{ secrets.GARAGE_ACCESS_KEY }}" > /etc/serverledge/serverledge-conf.yaml
           echo "GARAGE_SECRET_ACCESS_KEY=${{ secrets.GARAGE_SECRET_KEY }}" >> /etc/serverledge/serverledge-conf.yaml
 
