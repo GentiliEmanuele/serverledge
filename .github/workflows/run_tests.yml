@@ -8,6 +8,17 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    services:
+      garage:
+        image: dxflrs/garage:v2.3.0
+        ports:
+          - 3900:3900
+        env:
+          GARAGE_DEFAULT_ACCESS_KEY: ${{ secrets.GARAGE_ACCESS_KEY }}"
+          GARAGE_DEFAULT_SECRET_KEY: ${{ secrets.GARAGE_SECRET_KEY }}"
+          GARAGE_DEFAULT_BUCKET: "default-bucket"
+
+
     steps:
       - name: Setup Go
         uses: actions/setup-go@v3
@@ -21,6 +32,11 @@ jobs:
 
       - name: Install dependencies
         run: make
+
+      - name: Create config file
+        run: |
+          echo "GARAGE_ACCESS_KEY_ID=${{ secrets.GARAGE_ACCESS_KEY }}" > /etc/serverledge/serverledge-conf.yaml
+          echo "GARAGE_SECRET_ACCESS_KEY=${{ secrets.GARAGE_SECRET_KEY }}" >> /etc/serverledge/serverledge-conf.yaml
 
       - name: Run tests
         run: make unit-test && make test
