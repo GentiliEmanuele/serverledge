@@ -36,8 +36,8 @@ jobs:
       - name: Create config file
         run: |
           sudo mkdir -p /etc/serverledge
-          echo "GARAGE_ACCESS_KEY_ID=${{ secrets.GARAGE_ACCESS_KEY }}" | sudo tee /etc/serverledge/serverledge-conf.yaml > /dev/null
-          echo "GARAGE_SECRET_ACCESS_KEY=${{ secrets.GARAGE_SECRET_KEY }}" | sudo tee -a /etc/serverledge/serverledge-conf.yaml > /dev/null
+          echo "garage.accessKey=${{ secrets.GARAGE_ACCESS_KEY }}" | sudo tee /etc/serverledge/serverledge-conf.yaml > /dev/null
+          echo "garage.secretKey=${{ secrets.GARAGE_SECRET_KEY }}" | sudo tee -a /etc/serverledge/serverledge-conf.yaml > /dev/null
 
       - name: Run tests
         run: make unit-test && make test
