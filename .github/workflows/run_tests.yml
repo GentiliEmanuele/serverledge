@@ -38,7 +38,6 @@ jobs:
           sudo mkdir -p /etc/serverledge
           echo "garage.accessKey: ${{ secrets.GARAGE_ACCESS_KEY }}" | sudo tee /etc/serverledge/serverledge-conf.yaml > /dev/null
           echo "garage.secretKey: ${{ secrets.GARAGE_SECRET_KEY }}" | sudo tee -a /etc/serverledge/serverledge-conf.yaml > /dev/null
-          sudo chown -R runner:docker /etc/serverledge
 
       - name: Run tests
         run: make unit-test && make test

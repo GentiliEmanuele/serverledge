@@ -4,13 +4,14 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	clientv3 "go.etcd.io/etcd/client/v3"
-	"go.etcd.io/etcd/server/v3/embed"
 	"log"
 	"net/http"
 	"os"
 	"testing"
 	"time"
+
+	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/server/v3/embed"
 
 	"github.com/serverledge-faas/serverledge/internal/config"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/registration"
 	"github.com/serverledge-faas/serverledge/internal/scheduling"
 	"github.com/serverledge-faas/serverledge/internal/workflow"
+	"github.com/serverledge-faas/serverledge/utils"
 	u "github.com/serverledge-faas/serverledge/utils"
 	"google.golang.org/grpc/codes"
 )
@@ -45,6 +47,9 @@ func getShellExt() string {
 }
 
 func testStartServerledge(isInCloud bool, outboundIp string) *echo.Echo {
+	// Usa fake garage
+	utils.UseFakeGarage = true
+
 	//setting up cache parameters
 	api.CacheSetup()
 	schedulingPolicy := &scheduling.DefaultLocalPolicy{}
