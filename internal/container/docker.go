@@ -122,7 +122,7 @@ func (cf *DockerFactory) PullImage(img string) (string, error) {
 	// Get registry info from etcd
 	localRegistryAddress, err := getLocalRegistryAddress()
 	if err != nil {
-		return img, fmt.Errorf("Could not get local registry address from etcd: %v", err)
+		fmt.Printf("No registry found")
 	}
 	// Format the name for local image using local registry address
 	localImage := strings.Join([]string{localRegistryAddress, img}, "/")
