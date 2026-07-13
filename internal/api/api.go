@@ -15,6 +15,7 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/client"
 	"github.com/serverledge-faas/serverledge/internal/container"
 	"github.com/serverledge-faas/serverledge/internal/function"
+	"github.com/serverledge-faas/serverledge/internal/gossiping"
 	"github.com/serverledge-faas/serverledge/internal/metrics"
 	"github.com/serverledge-faas/serverledge/internal/node"
 	"github.com/serverledge-faas/serverledge/internal/registration"
@@ -160,8 +161,9 @@ func CreateOrUpdateFunction(c echo.Context) error {
 	}
 
 	var isUpdate bool
+	var updateRemote bool
 
-	if c.Path() != "/update" {
+	if c.Path() != "/update" && c.Path() != "/update-remote" {
 		_, ok := function.GetFunction(f.Name) // TODO: we would need a system-wide lock here...
 		if ok {
 			log.Printf("Dropping request for already existing function '%s'\n", f.Name)
@@ -169,10 +171,18 @@ func CreateOrUpdateFunction(c echo.Context) error {
 		}
 
 		isUpdate = false
+		updateRemote = false
 		log.Printf("New request: creation of %s\n", f.Name)
 	} else {
 		log.Printf("New request: creation/update of %s\n", f.Name)
 		isUpdate = true
+
+		// Check if update comes from a remote node
+		if c.Path() == "/update-remote" {
+			updateRemote = true
+		} else {
+			updateRemote = false
+		}
 	}
 
 	// Check that the selected runtime exists
@@ -248,6 +258,10 @@ func CreateOrUpdateFunction(c echo.Context) error {
 	if isUpdate {
 		// terminate any warm container after the update
 		node.ShutdownWarmContainersFor(&f)
+		// If the request of update comes from this node propagate the update to the other node
+		if !updateRemote {
+			return gossiping.Gossip(&f)
+		}
 	}
 
 	response := struct{ Created string }{f.Name}
