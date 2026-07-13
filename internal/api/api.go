@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/serverledge-faas/serverledge/internal/cache"
 	"github.com/serverledge-faas/serverledge/internal/client"
 	"github.com/serverledge-faas/serverledge/internal/container"
 	"github.com/serverledge-faas/serverledge/internal/function"
@@ -258,12 +259,16 @@ func CreateOrUpdateFunction(c echo.Context) error {
 	if isUpdate {
 		// terminate any warm container after the update
 		node.ShutdownWarmContainersFor(&f)
+
 		// If the request of update comes from this node propagate the update to the other node
 		if !updateRemote {
 			err = gossiping.Gossip(&f)
 			if err != nil {
 				return c.JSON(http.StatusServiceUnavailable, fmt.Sprintf("Gossip failed: %v", err))
 			}
+		} else {
+			// If there is a remote update invalidate the cache
+			cache.GetCacheInstance().Delete(f.Name)
 		}
 	}
 
