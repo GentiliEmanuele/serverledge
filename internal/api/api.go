@@ -260,7 +260,10 @@ func CreateOrUpdateFunction(c echo.Context) error {
 		node.ShutdownWarmContainersFor(&f)
 		// If the request of update comes from this node propagate the update to the other node
 		if !updateRemote {
-			return gossiping.Gossip(&f)
+			err = gossiping.Gossip(&f)
+			if err != nil {
+				return c.JSON(http.StatusServiceUnavailable, fmt.Sprintf("Gossip failed: %v", err))
+			}
 		}
 	}
 
