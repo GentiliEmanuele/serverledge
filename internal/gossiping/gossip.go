@@ -25,7 +25,10 @@ func Gossip(f *function.Function) error {
 	}
 
 	for _, node := range *nodeList {
-		_ = sendGossip(&node, jsonData)
+		err = sendGossip(&node, jsonData)
+		if err != nil {
+			fmt.Printf("Error while sending a gossip to %s", node.IPAddress)
+		}
 	}
 
 	return nil

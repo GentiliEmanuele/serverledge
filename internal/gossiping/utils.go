@@ -90,5 +90,5 @@ func parseNode(key, value string) (*registration.NodeRegistration, error) {
 }
 
 func getUrlFromNode(node registration.NodeRegistration, route string) string {
-	return fmt.Sprintf("http://%s:%s%s", node.IPAddress, node.APIPort, route)
+	return fmt.Sprintf("http://%s:%d%s", node.IPAddress, node.APIPort, route)
 }
