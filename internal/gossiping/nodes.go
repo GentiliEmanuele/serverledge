@@ -34,7 +34,9 @@ func (nodes *NodeList) populate() error {
 		// Parse the node information and add it to the list
 		nodePtr, err := parseNode(key, value)
 		if err != nil {
-			return err
+			// If an error occurs while parsing a node skip it
+			fmt.Printf("error while parsing node %s: %v\n", value, err)
+			continue
 		}
 
 		*nodes = append(*nodes, *nodePtr)

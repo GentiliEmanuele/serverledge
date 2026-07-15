@@ -58,7 +58,7 @@ func Gossiping(receivedRequest Request) error {
 		log.Printf("Sending request to %s\n", node.IPAddress)
 		err = sendGossipMessage(&node, jsonData)
 		if err != nil {
-			fmt.Printf("Error while sending a gossip to %s", node.IPAddress)
+			fmt.Printf("Error while sending a gossip to %s: %v", node.IPAddress, err)
 		}
 	}
 

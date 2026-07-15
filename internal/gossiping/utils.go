@@ -1,51 +1,14 @@
 package gossiping
 
 import (
-	"context"
 	"fmt"
-	"math/rand/v2"
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/serverledge-faas/serverledge/internal/node"
 	"github.com/serverledge-faas/serverledge/internal/registration"
-	"github.com/serverledge-faas/serverledge/utils"
-	clientv3 "go.etcd.io/etcd/client/v3"
 )
-
-// getTopology contact the Etcd server and read all the nodes' information
-func getTopology() (*NodeList, error) {
-	cli, err := utils.GetEtcdClient()
-	if err != nil {
-		return nil, err
-	}
-
-	// Create a context with timer for the read
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	resp, err := cli.Get(ctx, "", clientv3.WithPrefix())
-	if err != nil {
-		return nil, fmt.Errorf("error while reading etcd: %w", err)
-	}
-
-	var nodeList NodeList
-
-	for _, kv := range resp.Kvs {
-		key := string(kv.Key)
-		value := string(kv.Value)
-
-		// Parse the node information and add it to the list
-		nodePtr, err := parseNode(key, value)
-		if err == nil {
-			nodeList = append(nodeList, *nodePtr)
-		}
-	}
-
-	return &nodeList, nil
-}
 
 // parseNode return the node infos from the etcd data
 func parseNode(key, value string) (*registration.NodeRegistration, error) {
@@ -94,9 +57,4 @@ func parseNode(key, value string) (*registration.NodeRegistration, error) {
 // getUrlFromNode return the URL of the specified node
 func getUrlFromNode(node registration.NodeRegistration, route string) string {
 	return fmt.Sprintf("http://%s:%d%s", node.IPAddress, node.APIPort, route)
-}
-
-// useCurrentNode return true the current node must be used for this gossiping message
-func useCurrentNode() bool {
-	return rand.IntN(2) == 1
 }
