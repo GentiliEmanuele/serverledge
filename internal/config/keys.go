@@ -10,6 +10,8 @@ const GARAGE_ACCESS_KEY = "garage.accessKey"
 const GARAGE_SECRET_KEY = "garage.secretKey"
 const GARAGE_REGION = "garage.region"
 
+const GOSSIPING_FAN_OUT = "gossiping.fan.out"
+
 // exposed port for serverledge APIs
 const API_PORT = "api.port"
 const API_IP = "api.ip"

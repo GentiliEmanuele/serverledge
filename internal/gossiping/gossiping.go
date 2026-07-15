@@ -12,13 +12,21 @@ import (
 )
 
 var requests *Requests
+var nodeList *NodeList
 
 // Gossiping build the topology and send a request to some node (casually)
 func Gossiping(receivedRequest Request) error {
-	// Parse the topology
-	nodeList, err := getTopology()
-	if err != nil {
-		return err
+	// If the node list is nil create it
+	if nodeList == nil {
+		nodeList = new(NodeList)
+	}
+
+	// If the node list is empty populate it
+	if len(*nodeList) == 0 {
+		err := nodeList.populate()
+		if err != nil {
+			return err
+		}
 	}
 
 	// If the requests list is nil create it
@@ -41,13 +49,12 @@ func Gossiping(receivedRequest Request) error {
 		return err
 	}
 
-	for _, node := range *nodeList {
-		// Choose casually if you use or not the current node
-		if !useCurrentNode() {
-			log.Printf("Skipping node %s\n", node.IPAddress)
-			continue
-		}
+	randSubList, err := nodeList.getNodeSubList()
+	if err != nil {
+		return err
+	}
 
+	for _, node := range *randSubList {
 		log.Printf("Sending request to %s\n", node.IPAddress)
 		err = sendGossipMessage(&node, jsonData)
 		if err != nil {
