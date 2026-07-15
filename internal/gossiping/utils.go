@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/serverledge-faas/serverledge/internal/function"
 	"github.com/serverledge-faas/serverledge/internal/node"
 	"github.com/serverledge-faas/serverledge/internal/registration"
 	"github.com/serverledge-faas/serverledge/utils"
@@ -100,9 +99,4 @@ func getUrlFromNode(node registration.NodeRegistration, route string) string {
 // useCurrentNode return true the current node must be used for this gossiping message
 func useCurrentNode() bool {
 	return rand.IntN(2) == 1
-}
-
-// trackRequest save the request with the timestamp of updating request.
-func trackRequest(f function.Function, timestamp time.Time) {
-
 }

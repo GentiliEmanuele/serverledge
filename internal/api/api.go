@@ -157,7 +157,7 @@ func CreateOrUpdateFunction(c echo.Context) error {
 	var f function.Function
 	var r gossiping.Request
 
-	if c.Path() == "/update" {
+	if c.Path() != "/update-remote" {
 		err := json.NewDecoder(c.Request().Body).Decode(&f)
 		if err != nil && err != io.EOF {
 			log.Printf("Could not parse request: %v\n", err)
