@@ -155,14 +155,25 @@ func PollAsyncResult(c echo.Context) error {
 // CreateOrUpdateFunction handles a function creation/update request.
 func CreateOrUpdateFunction(c echo.Context) error {
 	var f function.Function
-	err := json.NewDecoder(c.Request().Body).Decode(&f)
-	if err != nil && err != io.EOF {
-		log.Printf("Could not parse request: %v\n", err)
-		return err
+	var r gossiping.Request
+
+	if c.Path() == "/update" {
+		err := json.NewDecoder(c.Request().Body).Decode(&f)
+		if err != nil && err != io.EOF {
+			log.Printf("Could not parse request: %v\n", err)
+			return err
+		}
+	} else {
+		err := json.NewDecoder(c.Request().Body).Decode(&r)
+		if err != nil && err != io.EOF {
+			log.Printf("Could not parse request: %v\n", err)
+			return err
+		}
+
+		f = r.F
 	}
 
 	var isUpdate bool
-	var updateRemote bool
 
 	if c.Path() != "/update" && c.Path() != "/update-remote" {
 		_, ok := function.GetFunction(f.Name) // TODO: we would need a system-wide lock here...
@@ -172,18 +183,10 @@ func CreateOrUpdateFunction(c echo.Context) error {
 		}
 
 		isUpdate = false
-		updateRemote = false
 		log.Printf("New request: creation of %s\n", f.Name)
 	} else {
 		log.Printf("New request: creation/update of %s\n", f.Name)
 		isUpdate = true
-
-		// Check if update comes from a remote node
-		if c.Path() == "/update-remote" {
-			updateRemote = true
-		} else {
-			updateRemote = false
-		}
 	}
 
 	// Check that the selected runtime exists
@@ -247,7 +250,7 @@ func CreateOrUpdateFunction(c echo.Context) error {
 	}
 
 	start := time.Now()
-	err = f.SaveToGarage()
+	err := f.SaveToGarage()
 	duration := time.Since(start)
 	metrics.AddFunctionCreationTime(f.Name, duration.Seconds())
 
@@ -260,15 +263,21 @@ func CreateOrUpdateFunction(c echo.Context) error {
 		// terminate any warm container after the update
 		node.ShutdownWarmContainersFor(&f)
 
-		// If the request of update comes from this node propagate the update to the other node
-		if !updateRemote {
-			err = gossiping.Gossip(&f)
-			if err != nil {
-				return c.JSON(http.StatusServiceUnavailable, fmt.Sprintf("Gossip failed: %v", err))
-			}
-		} else {
-			// If there is a remote update invalidate the cache
+		// If the request of update comes from remote node invalidate the cache
+		if c.Path() == "/update-remote" {
 			cache.GetCacheInstance().Delete(f.Name)
+		} else if c.Path() == "/update" {
+			// It the update come from the current node create a new request
+			r = gossiping.Request{
+				F:         f,
+				Timestamp: time.Now(),
+			}
+		}
+
+		// Send the gossiping message
+		err = gossiping.Gossiping(r)
+		if err != nil {
+			return c.JSON(http.StatusServiceUnavailable, fmt.Sprintf("Gossip failed: %v", err))
 		}
 	}
 

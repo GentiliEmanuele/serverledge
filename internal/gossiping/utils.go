@@ -3,11 +3,13 @@ package gossiping
 import (
 	"context"
 	"fmt"
+	"math/rand/v2"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/serverledge-faas/serverledge/internal/function"
 	"github.com/serverledge-faas/serverledge/internal/node"
 	"github.com/serverledge-faas/serverledge/internal/registration"
 	"github.com/serverledge-faas/serverledge/utils"
@@ -46,6 +48,7 @@ func getTopology() (*NodeList, error) {
 	return &nodeList, nil
 }
 
+// parseNode return the node infos from the etcd data
 func parseNode(key, value string) (*registration.NodeRegistration, error) {
 	// This is the pattern that the serverledge node key must be respect
 	pattern := `registry/[A-Za-z0-9_-]+/[A-Za-z0-9_-]+/[A-Za-z0-9_-]+`
@@ -89,6 +92,17 @@ func parseNode(key, value string) (*registration.NodeRegistration, error) {
 	return nil, fmt.Errorf("invalid node key: %s", key)
 }
 
+// getUrlFromNode return the URL of the specified node
 func getUrlFromNode(node registration.NodeRegistration, route string) string {
 	return fmt.Sprintf("http://%s:%d%s", node.IPAddress, node.APIPort, route)
+}
+
+// useCurrentNode return true the current node must be used for this gossiping message
+func useCurrentNode() bool {
+	return rand.IntN(2) == 1
+}
+
+// trackRequest save the request with the timestamp of updating request.
+func trackRequest(f function.Function, timestamp time.Time) {
+
 }
