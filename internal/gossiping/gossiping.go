@@ -12,22 +12,12 @@ import (
 )
 
 var requests *Requests
-var nodeList *NodeList
+var neighborInfo map[string]*registration.StatusInformation
 
 // Gossiping build the topology and send a request to some node (casually)
 func Gossiping(receivedRequest Request) error {
-	// If the node list is nil create it
-	if nodeList == nil {
-		nodeList = new(NodeList)
-	}
-
-	// If the node list is empty populate it
-	if len(*nodeList) == 0 {
-		err := nodeList.populate()
-		if err != nil {
-			return err
-		}
-	}
+	// Get the neighbor info
+	neighborInfo = registration.GetFullNeighborInfo()
 
 	// If the requests list is nil create it
 	if requests == nil {
@@ -49,14 +39,15 @@ func Gossiping(receivedRequest Request) error {
 		return err
 	}
 
-	randSubList, err := nodeList.getNodeSubList()
-	if err != nil {
-		return err
-	}
+	randNodes := getNodesRandomly(neighborInfo)
 
-	for _, node := range *randSubList {
+	for key, _ := range randNodes {
+		node := registration.GetPeerFromKey(key)
+		if node == nil {
+			continue
+		}
 		log.Printf("Sending request to %s\n", node.IPAddress)
-		err = sendGossipMessage(&node, jsonData)
+		err = sendGossipMessage(node, jsonData)
 		if err != nil {
 			fmt.Printf("Error while sending a gossip to %s: %v", node.IPAddress, err)
 		}
