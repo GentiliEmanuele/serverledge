@@ -49,7 +49,7 @@ func Gossiping(receivedRequest Request) error {
 		log.Printf("Sending request to %s\n", node.IPAddress)
 		err = sendGossipMessage(node, jsonData)
 		if err != nil {
-			fmt.Printf("Error while sending a gossip to %s: %v", node.IPAddress, err)
+			fmt.Printf("Error while sending a gossip to %s: %v\n", node.IPAddress, err)
 		}
 	}
 
@@ -73,12 +73,12 @@ func sendGossipMessage(node *registration.NodeRegistration, jsonData []byte) err
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
-			fmt.Print("Error closing body")
+			fmt.Print("Error closing body\n")
 		}
 	}(response.Body)
 
 	if response.StatusCode != 200 {
-		return fmt.Errorf("error while executing gossiping algorithm: %v", response.Status)
+		return fmt.Errorf("error %d %v\n", response.StatusCode, response.Status)
 	}
 
 	return nil
