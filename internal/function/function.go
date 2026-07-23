@@ -222,7 +222,7 @@ func GetAllWithPrefix(prefix string) ([]string, error) {
 	// Init the paginator
 	paginator := s3.NewListObjectsV2Paginator(cli, params)
 
-	var keys []string
+	keys := make([]string, 0)
 
 	// Iterate on the pages
 	for paginator.HasMorePages() {
@@ -236,5 +236,5 @@ func GetAllWithPrefix(prefix string) ([]string, error) {
 		}
 	}
 
-	return keys, nil
+	return keys, ctx.Err()
 }
