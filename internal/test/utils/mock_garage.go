@@ -70,3 +70,7 @@ func (f *GarageFakeStorage) DeleteObject(ctx context.Context, params *s3.DeleteO
 
 	return &s3.DeleteObjectOutput{}, nil
 }
+
+func (f *GarageFakeStorage) ListObjectsV2(ctx context.Context, params *s3.ListObjectsV2Input, optFns ...func(*s3.Options)) (*s3.ListObjectsV2Output, error) {
+	return nil, nil
+}

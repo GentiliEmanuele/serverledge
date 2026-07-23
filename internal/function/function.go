@@ -13,7 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/serverledge-faas/serverledge/internal/cache"
 	"github.com/serverledge-faas/serverledge/utils"
-	clientv3 "go.etcd.io/etcd/client/v3"
 	"golang.org/x/net/context"
 )
 
@@ -138,7 +137,7 @@ func (f *Function) SaveToGarage() error {
 		return fmt.Errorf("could not marshal function: %v", err)
 	}
 
-	// In garage use /function/name as key
+	// In garage use function/name as key
 	key := fmt.Sprintf("function/%s", f.Name)
 
 	// Write the function code in Garage
@@ -199,27 +198,43 @@ func (f *Function) Exists() bool {
 
 // GetAll returns all function names
 func GetAll() ([]string, error) {
-	return GetAllWithPrefix("/function")
+	return GetAllWithPrefix("function/")
 }
 
 // GetAllWithPrefix is used to get all /function or /workflow currently registered in etcd
 func GetAllWithPrefix(prefix string) ([]string, error) {
-	cli, err := utils.GetEtcdClient()
+	// Get the garage client
+	cli, err := utils.GetGarageClient()
 	if err != nil {
 		return nil, err
 	}
+
+	// Create a context
 	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
 	defer cancel()
 
-	resp, err := cli.Get(ctx, prefix, clientv3.WithPrefix())
-	if err != nil {
-		return nil, err
+	// Prepare the request
+	params := &s3.ListObjectsV2Input{
+		Bucket: aws.String(BucketName),
+		Prefix: aws.String(prefix),
 	}
 
-	functions := make([]string, len(resp.Kvs))
-	for i, s := range resp.Kvs {
-		functions[i] = string(s.Key)[len(prefix+"/"):]
+	// Init the paginator
+	paginator := s3.NewListObjectsV2Paginator(cli, params)
+
+	var keys []string
+
+	// Iterate on the pages
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, obj := range page.Contents {
+			keys = append(keys, (*obj.Key)[len(prefix):])
+		}
 	}
 
-	return functions, ctx.Err()
+	return keys, nil
 }
