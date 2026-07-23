@@ -3,7 +3,6 @@ package cache
 // This code has been adapted from github.com/patrickmn/go-cache
 
 import (
-	"math"
 	"runtime"
 	"sync"
 	"time"
@@ -27,9 +26,10 @@ func (item *Item) Expired() bool {
 const (
 	// NoExpiration For use with function that take an expiration time.
 	NoExpiration time.Duration = -1
-	// DefaultExpiration is the max representable integer so that the cache was not invalidate.
-	// The invalidation of cache is useless with gossiping algorithms
-	DefaultExpiration = math.MaxInt64
+	// DefaultExpiration For use with function that take an expiration time. Equivalent to
+	// passing in the same expiration duration as was given to New() or
+	// NewFrom() when the cache was created (e.g. 5 minutes.)
+	DefaultExpiration = 2 * time.Second
 )
 
 type Cache struct {
