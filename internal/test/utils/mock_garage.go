@@ -5,9 +5,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
 type GarageFakeStorage struct {
@@ -72,5 +75,31 @@ func (f *GarageFakeStorage) DeleteObject(ctx context.Context, params *s3.DeleteO
 }
 
 func (f *GarageFakeStorage) ListObjectsV2(ctx context.Context, params *s3.ListObjectsV2Input, optFns ...func(*s3.Options)) (*s3.ListObjectsV2Output, error) {
-	return nil, nil
+	// Get a read lock
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	// Read the prefix as param
+	var prefix string
+	if params.Prefix != nil {
+		prefix = *params.Prefix
+	}
+
+	var contents []types.Object
+
+	// Iterate on all stored element
+	for key, data := range f.store {
+		// Se la chiave inizia con il prefisso richiesto (o se il prefisso è vuoto)
+		if strings.HasPrefix(key, prefix) {
+			size := int64(len(data))
+			contents = append(contents, types.Object{
+				Key:  aws.String(key),
+				Size: aws.Int64(size),
+			})
+		}
+	}
+
+	return &s3.ListObjectsV2Output{
+		Contents: contents,
+	}, nil
 }
