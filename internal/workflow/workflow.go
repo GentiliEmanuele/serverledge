@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/serverledge-faas/serverledge/internal/node"
 	"io"
 	"net/http"
 	"sort"
 	"time"
+
+	"github.com/serverledge-faas/serverledge/internal/node"
+	clientv3 "go.etcd.io/etcd/client/v3"
 
 	"log"
 
@@ -22,7 +24,6 @@ import (
 	"github.com/serverledge-faas/serverledge/utils"
 
 	"github.com/serverledge-faas/serverledge/internal/asl"
-	"github.com/serverledge-faas/serverledge/internal/function"
 	"github.com/serverledge-faas/serverledge/internal/types"
 )
 
@@ -295,7 +296,28 @@ func getEtcdKey(workflowName string) string {
 
 // GetAllWorkflows returns the workflow names
 func GetAllWorkflows() ([]string, error) {
-	return function.GetAllWithPrefix("/workflow")
+	return getAllWithPrefix("/workflow")
+}
+
+func getAllWithPrefix(prefix string) ([]string, error) {
+	cli, err := utils.GetEtcdClient()
+	if err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
+	defer cancel()
+
+	resp, err := cli.Get(ctx, prefix, clientv3.WithPrefix())
+	if err != nil {
+		return nil, err
+	}
+
+	workflows := make([]string, len(resp.Kvs))
+	for i, s := range resp.Kvs {
+		workflows[i] = string(s.Key)[len(prefix+"/"):]
+	}
+
+	return workflows, ctx.Err()
 }
 
 func getFromCache(name string) (*Workflow, bool) {

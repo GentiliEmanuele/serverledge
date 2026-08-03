@@ -152,49 +152,129 @@ func PollAsyncResult(c echo.Context) error {
 	}
 }
 
-// CreateOrUpdateFunction handles a function creation/update request.
-func CreateOrUpdateFunction(c echo.Context) error {
+// CreateFunction handles a function creation request.
+func CreateFunction(c echo.Context) error {
+	// Parse the request
+	var f function.Function
+	err := json.NewDecoder(c.Request().Body).Decode(&f)
+	if err != nil && err != io.EOF {
+		log.Printf("Could not parse request: %v\n", err)
+		return err
+	}
+
+	// Check if the function already exists
+	_, ok := function.GetFunction(f.Name) // TODO: we would need a system-wide lock here...
+	if ok {
+		log.Printf("Dropping request for already existing function '%s'\n", f.Name)
+		return c.String(http.StatusConflict, "")
+	}
+
+	log.Printf("New request: creation of %s\n", f.Name)
+
+	// Populate function struct
+	exitCode, err := populateFunction(&f)
+	if err != nil {
+		return c.String(exitCode, err.Error())
+	}
+
+	// Save the function in Garage
+	start := time.Now()
+	err = f.SaveToGarage()
+	duration := time.Since(start)
+	metrics.AddFunctionCreationTime(f.Name, duration.Seconds())
+
+	if err != nil {
+		log.Printf("Failed creation: %v\n", err)
+		return c.JSON(http.StatusServiceUnavailable, "")
+	}
+
+	response := struct{ Created string }{f.Name}
+	return c.JSON(http.StatusOK, response)
+}
+
+// UpdateFunction handles a function update request.
+func UpdateFunction(c echo.Context) error {
+	var f function.Function
+
+	err := json.NewDecoder(c.Request().Body).Decode(&f)
+	if err != nil && err != io.EOF {
+		log.Printf("Could not parse request: %v\n", err)
+		return err
+	}
+
+	log.Printf("New request: update of %s\n", f.Name)
+
+	// Populate function struct
+	exitCode, err := populateFunction(&f)
+	if err != nil {
+		return c.String(exitCode, err.Error())
+	}
+
+	start := time.Now()
+	err = f.SaveToGarage()
+	duration := time.Since(start)
+	metrics.AddFunctionCreationTime(f.Name, duration.Seconds())
+
+	if err != nil {
+		log.Printf("Failed creation: %v\n", err)
+		return c.JSON(http.StatusServiceUnavailable, "")
+	}
+
+	// terminate any warm container after the update
+	node.ShutdownWarmContainersFor(&f)
+
+	// It the update come from the current node create a new request
+	r := gossiping.Request{
+		F:         f,
+		Timestamp: time.Now(),
+	}
+
+	// Send the gossiping message
+	err = gossiping.Gossiping(r)
+	if err != nil {
+		return c.JSON(http.StatusServiceUnavailable, fmt.Sprintf("Gossip failed: %v", err))
+	}
+
+	response := struct{ Created string }{f.Name}
+	return c.JSON(http.StatusOK, response)
+}
+
+func UpdateRemote(c echo.Context) error {
 	var f function.Function
 	var r gossiping.Request
 
-	if c.Path() != "/update-remote" {
-		err := json.NewDecoder(c.Request().Body).Decode(&f)
-		if err != nil && err != io.EOF {
-			log.Printf("Could not parse request: %v\n", err)
-			return err
-		}
-	} else {
-		err := json.NewDecoder(c.Request().Body).Decode(&r)
-		if err != nil && err != io.EOF {
-			log.Printf("Could not parse request: %v\n", err)
-			return err
-		}
-
-		f = r.F
+	// Decode the request
+	err := json.NewDecoder(c.Request().Body).Decode(&r)
+	if err != nil && err != io.EOF {
+		log.Printf("Could not parse request: %v\n", err)
+		return err
 	}
 
-	var isUpdate bool
+	f = r.F
 
-	if c.Path() != "/update" && c.Path() != "/update-remote" {
-		_, ok := function.GetFunction(f.Name) // TODO: we would need a system-wide lock here...
-		if ok {
-			log.Printf("Dropping request for already existing function '%s'\n", f.Name)
-			return c.String(http.StatusConflict, "")
-		}
+	// Terminate any warm container after the update
+	node.ShutdownWarmContainersFor(&f)
 
-		isUpdate = false
-		log.Printf("New request: creation of %s\n", f.Name)
-	} else {
-		log.Printf("New request: creation/update of %s\n", f.Name)
-		isUpdate = true
+	// Delete the element from the cache
+	cache.GetCacheInstance().Delete(f.Name)
+
+	// Forward the request
+	err = gossiping.Gossiping(r)
+	if err != nil {
+		return c.JSON(http.StatusServiceUnavailable, fmt.Sprintf("Gossip failed: %v", err))
 	}
 
+	response := struct{ Created string }{f.Name}
+	return c.JSON(http.StatusOK, response)
+}
+
+func populateFunction(f *function.Function) (int, error) {
 	// Check that the selected runtime exists
 	if f.Runtime != container.CUSTOM_RUNTIME {
 		selectedRuntime, ok := container.RuntimeToInfo[f.Runtime]
 		if !ok {
 			log.Printf("User indicated unknown runtime: %s\n", f.Runtime)
-			return c.String(http.StatusNotFound, "Invalid runtime.")
+			return http.StatusNotFound, fmt.Errorf("invalid runtime")
 		}
 		f.SupportedArchs = []string{container.X86, container.ARM}
 		if f.MaxConcurrency > 1 && !selectedRuntime.ConcurrencySupported {
@@ -213,7 +293,7 @@ func CreateOrUpdateFunction(c echo.Context) error {
 			archs, err := container.GetFactory().GetImageArchitectures(f.CustomImage)
 			if err != nil {
 				log.Printf("Failed to get image architectures for image %s: %v\n", f.CustomImage, err)
-				return c.String(http.StatusInternalServerError, "Failed to get image architectures")
+				return http.StatusInternalServerError, fmt.Errorf("failed to get image architectures")
 			}
 
 			/* CustomRuntimeToInfo value "Image" is the empty string to save (just a little) memory. In fact, f.CustomImage
@@ -242,47 +322,14 @@ func CreateOrUpdateFunction(c echo.Context) error {
 	}
 
 	if f.MemoryMB < 1 {
-		return c.String(http.StatusUnprocessableEntity, "Invalid memory limit")
+		return http.StatusUnprocessableEntity, fmt.Errorf("invalid memory limit")
 	}
 
 	if f.MaxConcurrency <= 0 {
 		f.MaxConcurrency = 1
 	}
 
-	start := time.Now()
-	err := f.SaveToGarage()
-	duration := time.Since(start)
-	metrics.AddFunctionCreationTime(f.Name, duration.Seconds())
-
-	if err != nil {
-		log.Printf("Failed creation: %v\n", err)
-		return c.JSON(http.StatusServiceUnavailable, "")
-	}
-
-	if isUpdate {
-		// terminate any warm container after the update
-		node.ShutdownWarmContainersFor(&f)
-
-		// If the request of update comes from remote node invalidate the cache
-		if c.Path() == "/update-remote" {
-			cache.GetCacheInstance().Delete(f.Name)
-		} else if c.Path() == "/update" {
-			// It the update come from the current node create a new request
-			r = gossiping.Request{
-				F:         f,
-				Timestamp: time.Now(),
-			}
-		}
-
-		// Send the gossiping message
-		err = gossiping.Gossiping(r)
-		if err != nil {
-			return c.JSON(http.StatusServiceUnavailable, fmt.Sprintf("Gossip failed: %v", err))
-		}
-	}
-
-	response := struct{ Created string }{f.Name}
-	return c.JSON(http.StatusOK, response)
+	return http.StatusOK, nil
 }
 
 // DeleteFunction handles a function deletion request.

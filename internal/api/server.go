@@ -26,9 +26,9 @@ func StartAPIServer(e *echo.Echo) {
 
 	// Routes
 	e.POST("/invoke/:fun", InvokeFunction)
-	e.POST("/create", CreateOrUpdateFunction)
-	e.POST("/update", CreateOrUpdateFunction)
-	e.POST("/update-remote", CreateOrUpdateFunction)
+	e.POST("/create", CreateFunction)
+	e.POST("/update", UpdateFunction)
+	e.POST("/update-remote", UpdateRemote)
 	e.POST("/delete", DeleteFunction)
 	e.GET("/function", GetFunctions)
 	e.GET("/poll/:reqId", PollAsyncResult)
