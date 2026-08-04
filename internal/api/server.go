@@ -29,6 +29,7 @@ func StartAPIServer(e *echo.Echo) {
 	e.POST("/create", CreateFunction)
 	e.POST("/update", UpdateFunction)
 	e.POST("/update-remote", UpdateRemote)
+	e.POST("/create-remote", CreateRemote)
 	e.POST("/delete", DeleteFunction)
 	e.GET("/function", GetFunctions)
 	e.GET("/poll/:reqId", PollAsyncResult)

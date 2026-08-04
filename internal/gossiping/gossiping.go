@@ -15,7 +15,7 @@ var requests *Requests
 var neighborInfo map[string]*registration.StatusInformation
 
 // Gossiping build the topology and send a request to some node (casually)
-func Gossiping(receivedRequest Request) error {
+func Gossiping(receivedRequest Request, route string) error {
 	// Get the neighbor info
 	neighborInfo = registration.GetFullNeighborInfo()
 
@@ -47,7 +47,7 @@ func Gossiping(receivedRequest Request) error {
 			continue
 		}
 		log.Printf("Sending request to %s\n", node.IPAddress)
-		err = sendGossipMessage(node, jsonData)
+		err = sendGossipMessage(node, jsonData, route)
 		if err != nil {
 			fmt.Printf("Error while sending a gossip to %s: %v\n", node.IPAddress, err)
 		}
@@ -57,9 +57,9 @@ func Gossiping(receivedRequest Request) error {
 }
 
 // sendGossipMessage send the given json data to the specified node
-func sendGossipMessage(node *registration.NodeRegistration, jsonData []byte) error {
+func sendGossipMessage(node *registration.NodeRegistration, jsonData []byte, route string) error {
 	// Format the request
-	req, err := http.NewRequest("POST", getUrlFromNode(*node, "/update-remote"), bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", getUrlFromNode(*node, route), bytes.NewBuffer(jsonData))
 	if err != nil {
 		return err
 	}

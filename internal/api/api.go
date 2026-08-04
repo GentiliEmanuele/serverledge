@@ -188,6 +188,44 @@ func CreateFunction(c echo.Context) error {
 		return c.JSON(http.StatusServiceUnavailable, "")
 	}
 
+	// Create a gossiping message with the new function data
+	r := gossiping.Request{
+		F:         f,
+		Timestamp: time.Now(),
+	}
+
+	// Send a gossiping message to neighbors to communicate that a new function has been created
+	err = gossiping.Gossiping(r, "/create-remote")
+	if err != nil {
+		return c.JSON(http.StatusServiceUnavailable, fmt.Sprintf("Creation gossiping failed: %v", err))
+	}
+
+	response := struct{ Created string }{f.Name}
+	return c.JSON(http.StatusOK, response)
+}
+
+func CreateRemote(c echo.Context) error {
+	var f function.Function
+	var r gossiping.Request
+
+	// Decode the request
+	err := json.NewDecoder(c.Request().Body).Decode(&r)
+	if err != nil && err != io.EOF {
+		log.Printf("Could not parse request: %v\n", err)
+		return err
+	}
+
+	f = r.F
+
+	// Save the function received fro gossiping message into the cache
+	cache.GetCacheInstance().Set(f.Name, f, cache.DefaultExp)
+
+	// Forward the request
+	err = gossiping.Gossiping(r, "/create-remote")
+	if err != nil {
+		return c.JSON(http.StatusServiceUnavailable, fmt.Sprintf("Creation gossiping failed: %v", err))
+	}
+
 	response := struct{ Created string }{f.Name}
 	return c.JSON(http.StatusOK, response)
 }
@@ -230,15 +268,16 @@ func UpdateFunction(c echo.Context) error {
 	}
 
 	// Send the gossiping message
-	err = gossiping.Gossiping(r)
+	err = gossiping.Gossiping(r, "/update-remote")
 	if err != nil {
-		return c.JSON(http.StatusServiceUnavailable, fmt.Sprintf("Gossip failed: %v", err))
+		return c.JSON(http.StatusServiceUnavailable, fmt.Sprintf("Update gossiping failed: %v", err))
 	}
 
 	response := struct{ Created string }{f.Name}
 	return c.JSON(http.StatusOK, response)
 }
 
+// UpdateRemote handles the gossiping algorithm requests
 func UpdateRemote(c echo.Context) error {
 	var f function.Function
 	var r gossiping.Request
@@ -259,15 +298,16 @@ func UpdateRemote(c echo.Context) error {
 	cache.GetCacheInstance().Delete(f.Name)
 
 	// Forward the request
-	err = gossiping.Gossiping(r)
+	err = gossiping.Gossiping(r, "/update-remote")
 	if err != nil {
-		return c.JSON(http.StatusServiceUnavailable, fmt.Sprintf("Gossip failed: %v", err))
+		return c.JSON(http.StatusServiceUnavailable, fmt.Sprintf("Update gossiping failed: %v", err))
 	}
 
 	response := struct{ Created string }{f.Name}
 	return c.JSON(http.StatusOK, response)
 }
 
+// populateFunction fills the function struct fields
 func populateFunction(f *function.Function) (int, error) {
 	// Check that the selected runtime exists
 	if f.Runtime != container.CUSTOM_RUNTIME {
