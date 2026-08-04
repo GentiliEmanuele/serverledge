@@ -204,6 +204,7 @@ func CreateFunction(c echo.Context) error {
 	return c.JSON(http.StatusOK, response)
 }
 
+// CreateRemote handles the creation gossiping messages
 func CreateRemote(c echo.Context) error {
 	var f function.Function
 	var r gossiping.Request
@@ -217,8 +218,8 @@ func CreateRemote(c echo.Context) error {
 
 	f = r.F
 
-	// Save the function received fro gossiping message into the cache
-	cache.GetCacheInstance().Set(f.Name, f, cache.DefaultExp)
+	// Save the function received for gossiping message into the cache
+	cache.GetCacheInstance().Set(f.Name, &f, cache.DefaultExp)
 
 	// Forward the request
 	err = gossiping.Gossiping(r, "/create-remote")
