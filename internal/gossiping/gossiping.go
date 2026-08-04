@@ -14,8 +14,8 @@ import (
 var requests *Requests
 var neighborInfo map[string]*registration.StatusInformation
 
-// Gossiping build the topology and send a request to some node (casually)
-func Gossiping(receivedRequest Request, route string) error {
+// Gossiping build the topology and send a request to some node (casually). Return true if the gossiping request has been already processed.
+func Gossiping(receivedRequest Request, route string) (bool, error) {
 	// Get the neighbor info
 	neighborInfo = registration.GetFullNeighborInfo()
 
@@ -27,7 +27,7 @@ func Gossiping(receivedRequest Request, route string) error {
 	// Check if the requests list contain the received request
 	if requests.find(receivedRequest.F, receivedRequest.Timestamp) {
 		log.Print("Request already processed\n")
-		return nil
+		return true, nil
 	}
 
 	// If the request has not been already processed save it into the list and send it tho others causal nodes
@@ -36,7 +36,7 @@ func Gossiping(receivedRequest Request, route string) error {
 	// Convert in JSON the function struct to be sent to the other nodes
 	jsonData, err := json.Marshal(receivedRequest)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	randNodes := getNodesRandomly(neighborInfo)
@@ -53,7 +53,7 @@ func Gossiping(receivedRequest Request, route string) error {
 		}
 	}
 
-	return nil
+	return false, nil
 }
 
 // sendGossipMessage send the given json data to the specified node

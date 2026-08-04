@@ -117,9 +117,9 @@ func InvokeFunction(c echo.Context) error {
 	} else if err != nil {
 		log.Printf("Invocation failed: %v\n", err)
 		return c.String(http.StatusInternalServerError, "Node has not enough resources")
-	} else {
-		return c.JSON(http.StatusOK, function.Response{Success: true, ExecutionReport: *executionReport})
 	}
+
+	return c.JSON(http.StatusOK, function.Response{Success: true, ExecutionReport: *executionReport})
 }
 
 // PollAsyncResult checks for the result of an asynchronous invocation.
@@ -147,9 +147,9 @@ func PollAsyncResult(c echo.Context) error {
 	if len(res.Kvs) == 1 {
 		payload := res.Kvs[0].Value
 		return c.JSONBlob(http.StatusOK, payload)
-	} else {
-		return c.String(http.StatusNotFound, "")
 	}
+
+	return c.String(http.StatusNotFound, "")
 }
 
 // CreateFunction handles a function creation request.
@@ -195,7 +195,7 @@ func CreateFunction(c echo.Context) error {
 	}
 
 	// Send a gossiping message to neighbors to communicate that a new function has been created
-	err = gossiping.Gossiping(r, "/create-remote")
+	_, err = gossiping.Gossiping(r, "/create-remote")
 	if err != nil {
 		return c.JSON(http.StatusServiceUnavailable, fmt.Sprintf("Creation gossiping failed: %v", err))
 	}
@@ -222,9 +222,16 @@ func CreateRemote(c echo.Context) error {
 	cache.GetCacheInstance().Set(f.Name, &f, cache.DefaultExp)
 
 	// Forward the request
-	err = gossiping.Gossiping(r, "/create-remote")
+	alreadyProcessed, err := gossiping.Gossiping(r, "/create-remote")
 	if err != nil {
 		return c.JSON(http.StatusServiceUnavailable, fmt.Sprintf("Creation gossiping failed: %v", err))
+	}
+
+	// Pull the image using a go routine only if the gossiping request hasn't been processed yet
+	if !alreadyProcessed {
+		go func() {
+			_, err = container.GetFactory().PullImage(container.RuntimeToInfo[f.Runtime].Image)
+		}()
 	}
 
 	response := struct{ Created string }{f.Name}
@@ -269,7 +276,7 @@ func UpdateFunction(c echo.Context) error {
 	}
 
 	// Send the gossiping message
-	err = gossiping.Gossiping(r, "/update-remote")
+	_, err = gossiping.Gossiping(r, "/update-remote")
 	if err != nil {
 		return c.JSON(http.StatusServiceUnavailable, fmt.Sprintf("Update gossiping failed: %v", err))
 	}
@@ -299,7 +306,7 @@ func UpdateRemote(c echo.Context) error {
 	cache.GetCacheInstance().Delete(f.Name)
 
 	// Forward the request
-	err = gossiping.Gossiping(r, "/update-remote")
+	_, err = gossiping.Gossiping(r, "/update-remote")
 	if err != nil {
 		return c.JSON(http.StatusServiceUnavailable, fmt.Sprintf("Update gossiping failed: %v", err))
 	}
