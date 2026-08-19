@@ -11,4 +11,5 @@ type Requests []Request
 type Request struct {
 	F         function.Function
 	Timestamp time.Time
+	ImgDigest string
 }

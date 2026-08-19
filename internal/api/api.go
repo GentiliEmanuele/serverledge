@@ -192,6 +192,7 @@ func CreateFunction(c echo.Context) error {
 	r := gossiping.Request{
 		F:         f,
 		Timestamp: time.Now(),
+		ImgDigest: "", // For creation gossiping message the image digest is a don't care
 	}
 
 	// Send a gossiping message to neighbors to communicate that a new function has been created
@@ -269,10 +270,17 @@ func UpdateFunction(c echo.Context) error {
 	// terminate any warm container after the update
 	node.ShutdownWarmContainersFor(&f)
 
+	// Get the digest of the image used by the function
+	imgDigest, err := container.GetFactory().GetImageDigest(f.CustomImage)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+
 	// It the update come from the current node create a new request
 	r := gossiping.Request{
 		F:         f,
 		Timestamp: time.Now(),
+		ImgDigest: imgDigest, // The image digest is used for custom image update where the image used can change
 	}
 
 	// Send the gossiping message
@@ -298,6 +306,21 @@ func UpdateRemote(c echo.Context) error {
 	}
 
 	f = r.F
+
+	if f.Runtime == container.CUSTOM_RUNTIME {
+		// Inspect the image specified by the gossiping request
+		imgDigest, err := container.GetFactory().GetImageDigest(f.CustomImage)
+		if err != nil {
+			// In this case the image is not present in the local node so pull it
+			_, err = container.GetFactory().PullImage(container.RuntimeToInfo[f.Runtime].Image)
+		}
+
+		// If the image is present check if the digest is the same of that specified by gossiping request
+		// In this case pull the new version of the image
+		if r.ImgDigest != imgDigest {
+			_, err = container.GetFactory().PullImage(container.RuntimeToInfo[f.Runtime].Image)
+		}
+	}
 
 	// Terminate any warm container after the update
 	node.ShutdownWarmContainersFor(&f)

@@ -330,3 +330,13 @@ func (cf *DockerFactory) GetImageArchitectures(imageName string) ([]string, erro
 
 	return supportedArchitectures, nil
 }
+
+// GetImageDigest return the digest of the specified image
+func (cf *DockerFactory) GetImageDigest(imageName string) (string, error) {
+	inspectResp, err := cf.cli.ImageInspect(cf.ctx, imageName)
+	if err != nil {
+		return "", fmt.Errorf("failed to inspect image %s: %w", imageName, err)
+	}
+
+	return inspectResp.RepoDigests[0], nil
+}
