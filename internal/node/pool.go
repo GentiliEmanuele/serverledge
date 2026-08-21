@@ -12,8 +12,9 @@ import (
 
 type ContainerPool struct {
 	// for better efficiently we now use slices here instead of linked lists
-	busy []*container.Container
-	idle []*container.Container
+	busy        []*container.Container
+	idle        []*container.Container
+	toBeRemoved []*container.Container
 }
 
 var NoWarmFoundErr = errors.New("no warm container is available")
@@ -56,8 +57,9 @@ func (fp *ContainerPool) getReusableContainer(maxConcurrency int16) (*container.
 
 func newContainerPool() *ContainerPool {
 	return &ContainerPool{
-		busy: make([]*container.Container, 0, 10),
-		idle: make([]*container.Container, 0, 10),
+		busy:        make([]*container.Container, 0, 10),
+		idle:        make([]*container.Container, 0, 10),
+		toBeRemoved: make([]*container.Container, 0, 10),
 	}
 }
 
@@ -163,25 +165,59 @@ func HandleCompletion(cont *container.Container, f *function.Function) {
 			}
 		}
 
+		var lastIdx int
+		var d time.Duration
+		// If the container was not found in the busy container slice search it in the toBeRemoved slice
 		if idx == -1 {
 			log.Println("Failed to release a container! Not found in busy pool.")
-			return
+			goto searchFromToBeRemoved
 		}
 
 		// swap then pop from the slice. This way we don't have to
-		lastIdx := len(fp.busy) - 1
+		lastIdx = len(fp.busy) - 1
 		fp.busy[idx] = fp.busy[lastIdx] // swap between last element and the one we want to delete
 		fp.busy[lastIdx] = nil          // nil to favor garbage collection
 		fp.busy = fp.busy[:lastIdx]     // pop the slice
 
 		// finally, we add the container to the idle pool
-		d := time.Duration(config.GetInt(config.CONTAINER_EXPIRATION_TIME, 600)) * time.Second
+		d = time.Duration(config.GetInt(config.CONTAINER_EXPIRATION_TIME, 600)) * time.Second
 		cont.ExpirationTime = time.Now().Add(d).UnixNano()
 		fp.idle = append(fp.idle, cont)
 
 		LocalResources.usedCPUs -= f.CPUDemand
 		LocalResources.busyPoolUsedMem -= f.MemoryMB
 		LocalResources.warmPoolUsedMem += f.MemoryMB
+		return
+
+	searchFromToBeRemoved:
+		var toBeRemovedContainerIdx container.ContainerID
+		// If the container was not found in the idle container slice search it in the slice of toBeRemoved container
+		for i, c := range fp.toBeRemoved {
+			if c == cont {
+				toBeRemovedContainerIdx = c.ID // Save the id of the container that will be removed
+				idx = i                        // with slices, we can compare pointers
+				break
+			}
+		}
+
+		// Swap then pop from the slice
+		lastIdx = len(fp.toBeRemoved) - 1
+		fp.toBeRemoved[lastIdx] = fp.toBeRemoved[lastIdx]
+		fp.toBeRemoved[lastIdx] = nil
+		fp.toBeRemoved = fp.toBeRemoved[:lastIdx]
+
+		LocalResources.usedCPUs -= f.CPUDemand
+		LocalResources.busyPoolUsedMem -= f.MemoryMB
+		LocalResources.warmPoolUsedMem += f.MemoryMB
+
+		go func(contID container.ContainerID) {
+			// No need to update available resources here
+			if err := container.Destroy(contID); err != nil {
+				log.Printf("An error occurred while deleting %s: %v\n", contID, err)
+			} else {
+				log.Printf("Deleted %s\n", contID)
+			}
+		}(toBeRemovedContainerIdx)
 	}
 }
 
@@ -404,6 +440,14 @@ func ShutdownWarmContainersFor(f *function.Function) {
 	// clear the slice
 	fp.idle = fp.idle[:0]
 
+	// Add all elements of busy container slice in toBeRemoved container slice
+	for _, busy := range fp.busy {
+		fp.toBeRemoved = append(fp.toBeRemoved, busy)
+	}
+
+	// Swap old busy container slice with a new empty slice
+	fp.busy = make([]*container.Container, 0)
+
 	go func(contIDs []container.ContainerID) {
 		for _, contID := range contIDs {
 			// No need to update available resources here
@@ -449,8 +493,26 @@ func ShutdownAllContainers() {
 
 			pool.busy[i] = nil
 		}
+
 		// Reset the busy slice capacity
 		pool.busy = pool.busy[:0]
+
+		// Now we dk the same but for toBeRemoved containers
+		for i, toBeRemoved := range pool.toBeRemoved {
+			log.Printf("Removing container with ID %s\n", toBeRemoved.ID)
+
+			err := container.Destroy(toBeRemoved.ID)
+			if err != nil {
+				log.Printf("failed to destroy container %s: %v\n", toBeRemoved.ID, err)
+				continue
+			}
+
+			pool.toBeRemoved[i] = nil
+		}
+
+		// Reset the toBeRemoved slice capacity
+		pool.toBeRemoved = pool.toBeRemoved[:0]
+
 	}
 
 	// NOTE: these values are not expected to be used again (we are shutting down the node)
