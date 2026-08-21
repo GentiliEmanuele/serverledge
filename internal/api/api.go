@@ -231,7 +231,11 @@ func CreateRemote(c echo.Context) error {
 	// Pull the image using a go routine only if the gossiping request hasn't been processed yet
 	if !alreadyProcessed {
 		go func() {
-			_, err = container.GetFactory().PullImage(container.RuntimeToInfo[f.Runtime].Image)
+			if f.Runtime == container.CUSTOM_RUNTIME {
+				_, err = container.GetFactory().PullImage(f.CustomImage)
+			} else {
+				_, err = container.GetFactory().PullImage(container.RuntimeToInfo[f.Runtime].Image)
+			}
 		}()
 	}
 
@@ -312,13 +316,13 @@ func UpdateRemote(c echo.Context) error {
 		imgDigest, err := container.GetFactory().GetImageDigest(f.CustomImage)
 		if err != nil {
 			// In this case the image is not present in the local node so pull it
-			_, err = container.GetFactory().PullImage(container.RuntimeToInfo[f.Runtime].Image)
+			_, err = container.GetFactory().PullImage(f.CustomImage)
 		}
 
 		// If the image is present check if the digest is the same of that specified by gossiping request
 		// In this case pull the new version of the image
 		if r.ImgDigest != imgDigest {
-			_, err = container.GetFactory().PullImage(container.RuntimeToInfo[f.Runtime].Image)
+			_, err = container.GetFactory().PullImage(f.CustomImage)
 		}
 	}
 
