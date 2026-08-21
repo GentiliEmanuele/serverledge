@@ -12,7 +12,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/serverledge-faas/serverledge/internal/cache"
-	"github.com/serverledge-faas/serverledge/internal/node"
 	"github.com/serverledge-faas/serverledge/utils"
 	"golang.org/x/net/context"
 )
@@ -177,8 +176,6 @@ func (f *Function) Delete() error {
 
 	// Remove the function from the local cache
 	cache.GetCacheInstance().Delete(f.Name)
-
-	node.ShutdownWarmContainersFor(f)
 
 	return nil
 }
