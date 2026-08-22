@@ -274,10 +274,13 @@ func UpdateFunction(c echo.Context) error {
 	// terminate any warm container after the update
 	node.ShutdownWarmContainersFor(&f)
 
-	// Get the digest of the image used by the function
-	imgDigest, err := container.GetFactory().GetImageDigest(f.CustomImage)
-	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
+	// Get the digest of the image used by the function that uses a custom runtime. For NO custom runtime the digest is a don't care
+	imgDigest := ""
+	if f.Runtime == container.CUSTOM_RUNTIME {
+		imgDigest, err = container.GetFactory().GetImageDigest(f.CustomImage)
+		if err != nil {
+			return c.String(http.StatusInternalServerError, err.Error())
+		}
 	}
 
 	// It the update come from the current node create a new request

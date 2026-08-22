@@ -11,7 +11,9 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/serverledge-faas/serverledge/internal/api"
+	"github.com/serverledge-faas/serverledge/internal/cache"
 	"github.com/serverledge-faas/serverledge/internal/config"
+	"github.com/serverledge-faas/serverledge/internal/function"
 	"github.com/serverledge-faas/serverledge/internal/metrics"
 	"github.com/serverledge-faas/serverledge/internal/node"
 	"github.com/serverledge-faas/serverledge/internal/registration"
@@ -88,6 +90,16 @@ func main() {
 		log.Fatal(err)
 	}
 
-	api.StartAPIServer(e)
+	// Init the cache and set onEviction function
+	log.Printf("Create the cache and set the handler for evicted elements\n")
+	cache.GetCacheInstance().SetOnEvicted(onEvicted)
 
+	api.StartAPIServer(e)
+}
+
+// onEvicted is the function used from the cache when an element has been deleted
+func onEvicted(key string, obj interface{}) {
+	if f, ok := obj.(*function.Function); ok {
+		node.ShutdownWarmContainersFor(f)
+	}
 }

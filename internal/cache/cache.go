@@ -238,3 +238,11 @@ func New(defaultExpiration, cleanupInterval time.Duration, size int) *Cache {
 	items := make(map[string]*Item)
 	return newCacheWithJanitor(defaultExpiration, cleanupInterval, items, size)
 }
+
+// SetOnEvicted set the handler used when an elements has been evicted from the cache
+func (c *cache) SetOnEvicted(f func(string, interface{})) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.onEvicted = f
+}
