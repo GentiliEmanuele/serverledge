@@ -72,6 +72,7 @@ func (c *cache) Set(k string, x interface{}, d time.Duration) {
 		c.items[k] = &newItem
 	} else {
 		toReplace := c.findLRU() //find least recently used key
+		c.onEvicted(toReplace, c.items[toReplace].Object)
 		delete(c.items, toReplace)
 		c.items[k] = &newItem //insert a new item
 	}
@@ -110,6 +111,7 @@ func (c *cache) Get(k string) (interface{}, bool) {
 		now := time.Now().UnixNano()
 		if now > item.Expiration {
 			c.mu.RUnlock()
+			c.onEvicted(k, item.Object)
 			return nil, false
 		}
 	}
