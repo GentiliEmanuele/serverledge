@@ -72,7 +72,12 @@ func (c *cache) Set(k string, x interface{}, d time.Duration) {
 		c.items[k] = &newItem
 	} else {
 		toReplace := c.findLRU() //find least recently used key
-		c.onEvicted(toReplace, c.items[toReplace].Object)
+
+		// If the callback onEvicted was defined call it on the element that will be replaced
+		if c.onEvicted != nil {
+			c.onEvicted(toReplace, c.items[toReplace].Object)
+		}
+
 		delete(c.items, toReplace)
 		c.items[k] = &newItem //insert a new item
 	}
