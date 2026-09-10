@@ -32,6 +32,9 @@ func main() {
 	//setting up cache parameters
 	api.CacheSetup()
 
+	// Initialize the function storage
+	function.InitStorage(config.GetString(config.FUNCTION_STORAGE_TYPE, "garage"))
+
 	// register to etcd, this way server is visible to the others under a given local area
 	myArea := config.GetString(config.REGISTRY_AREA, "ROME")
 	myId := config.GetString(config.REGISTRY_NODE_ID, "")

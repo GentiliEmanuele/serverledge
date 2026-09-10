@@ -171,3 +171,5 @@ const WORKFLOW_SAVE_FUNCTION_INPUT_TO_FILE = "workflow.profiling.saveinput"
 
 const LOAD_BALANCER_POLICY = "loadbalancer.policy"
 const LOAD_BALANCER_TARGET_UPDATE_INTERVAL = "loadbalancer.targets.interval"
+
+const FUNCTION_STORAGE_TYPE = "function.storage.type"

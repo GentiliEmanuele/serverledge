@@ -1,19 +1,10 @@
 package function
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"io"
 	"slices"
 
-	"time"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/serverledge-faas/serverledge/internal/cache"
-	"github.com/serverledge-faas/serverledge/utils"
-	"golang.org/x/net/context"
 )
 
 // Function describes a serverless function.
@@ -29,8 +20,6 @@ type Function struct {
 	SupportedArchs  []string // list of supported architectures by the runtime
 	Signature       *Signature
 }
-
-const BucketName = "default-bucket"
 
 func (f *Function) getEtcdKey() string {
 	return getEtcdKey(f.Name)
@@ -50,7 +39,7 @@ func GetFunction(name string) (*Function, bool) {
 	val, found := getFromCache(name)
 	if !found {
 		// cache miss
-		f, response := getFromGarage(name)
+		f, response := GetStorage().Get(name)
 		if !response {
 			return nil, false
 		}
@@ -80,75 +69,12 @@ func getFromCache(name string) (*Function, bool) {
 
 }
 
-// getFromGarage retrieve function infos from Garage
-func getFromGarage(name string) (*Function, bool) {
-	// Get Garage client
-	cli, err := utils.GetGarageClient()
-	if err != nil {
-		return nil, false
-	}
-
-	// Create a context
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-
-	// Format key
-	key := fmt.Sprintf("function/%s", name)
-
-	// Retrieve function object from Garage
-	output, err := cli.GetObject(ctx, &s3.GetObjectInput{
-		Bucket: aws.String(BucketName),
-		Key:    aws.String(key),
-	})
+// SaveFunction registers the function to the specified storage
+func (f *Function) SaveFunction() error {
+	err := GetStorage().Save(f)
 
 	if err != nil {
-		return nil, false
-	}
-
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-
-		}
-	}(output.Body)
-
-	data, err := io.ReadAll(output.Body)
-	if err != nil {
-		return nil, false
-	}
-
-	var f Function
-	if err := json.Unmarshal(data, &f); err != nil {
-		return nil, false
-	}
-
-	return &f, true
-}
-
-// SaveToGarage registers the function to Garage
-func (f *Function) SaveToGarage() error {
-	// Get Garage client
-	cli, err := utils.GetGarageClient()
-	if err != nil {
-		return err
-	}
-
-	payload, err := json.Marshal(*f)
-	if err != nil {
-		return fmt.Errorf("could not marshal function: %v", err)
-	}
-
-	// In garage use function/name as key
-	key := fmt.Sprintf("function/%s", f.Name)
-
-	// Write the function code in Garage
-	_, err = cli.PutObject(context.TODO(), &s3.PutObjectInput{
-		Bucket: aws.String(BucketName),
-		Key:    aws.String(key),
-		Body:   bytes.NewReader(payload),
-	})
-
-	if err != nil {
-		return fmt.Errorf("failed to save to Garage: %v", err)
+		return fmt.Errorf("failed to save the function: %v", err)
 	}
 
 	// Add the function to the local cache
@@ -157,21 +83,12 @@ func (f *Function) SaveToGarage() error {
 	return nil
 }
 
-// Delete removes a function from Garage and the local cache.
+// Delete removes a function from specified storage and from local cache.
 func (f *Function) Delete() error {
-	// Get Garage client
-	cli, err := utils.GetGarageClient()
-	if err != nil {
-		return err
-	}
+	err := GetStorage().Delete(f)
 
-	key := fmt.Sprintf("function/%s", f.Name)
-	_, err = cli.DeleteObject(context.TODO(), &s3.DeleteObjectInput{
-		Bucket: aws.String(BucketName),
-		Key:    aws.String(key),
-	})
 	if err != nil {
-		return fmt.Errorf("failed to delete from Garage: %v", err)
+		return fmt.Errorf("failed to delete the function: %v", err)
 	}
 
 	// Remove the function from the local cache
@@ -198,43 +115,5 @@ func (f *Function) Exists() bool {
 
 // GetAll returns all function names
 func GetAll() ([]string, error) {
-	return GetAllWithPrefix("function/")
-}
-
-// GetAllWithPrefix is used to get all /function or /workflow currently registered in etcd
-func GetAllWithPrefix(prefix string) ([]string, error) {
-	// Get the garage client
-	cli, err := utils.GetGarageClient()
-	if err != nil {
-		return nil, err
-	}
-
-	// Create a context
-	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
-	defer cancel()
-
-	// Prepare the request
-	params := &s3.ListObjectsV2Input{
-		Bucket: aws.String(BucketName),
-		Prefix: aws.String(prefix),
-	}
-
-	// Init the paginator
-	paginator := s3.NewListObjectsV2Paginator(cli, params)
-
-	keys := make([]string, 0)
-
-	// Iterate on the pages
-	for paginator.HasMorePages() {
-		page, err := paginator.NextPage(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, obj := range page.Contents {
-			keys = append(keys, (*obj.Key)[len(prefix):])
-		}
-	}
-
-	return keys, ctx.Err()
+	return GetStorage().GetAll()
 }

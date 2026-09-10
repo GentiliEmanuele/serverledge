@@ -179,7 +179,7 @@ func CreateFunction(c echo.Context) error {
 
 	// Save the function in Garage
 	start := time.Now()
-	err = f.SaveToGarage()
+	err = f.SaveFunction()
 	duration := time.Since(start)
 	metrics.AddFunctionCreationTime(f.Name, duration.Seconds())
 
@@ -262,7 +262,7 @@ func UpdateFunction(c echo.Context) error {
 	}
 
 	start := time.Now()
-	err = f.SaveToGarage()
+	err = f.SaveFunction()
 	duration := time.Since(start)
 	metrics.AddFunctionCreationTime(f.Name, duration.Seconds())
 
