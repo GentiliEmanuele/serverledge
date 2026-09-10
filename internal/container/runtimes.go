@@ -19,6 +19,7 @@ var RuntimeToInfo = map[string]RuntimeInfo{
 	"nodejs17ng":  {"grussorusso/serverledge-nodejs17ng", []string{}, false, []string{X86, ARM}},
 	"go125":       {"grussorusso/serverledge-go125", []string{"/entrypoint.sh"}, true, []string{X86, ARM}},
 	"python312ml": {"grussorusso/serverledge-python312ml", []string{"python", "/entrypoint.py"}, true, []string{X86, ARM}},
+	"TensorFlow":  {"egentili/tflow-sledge", []string{"python", "/entrypoint.py"}, true, []string{X86, ARM}},
 }
 
 // CustomRuntimeToInfo Map to keep track of architectures compatible with each custom runtime image associated with a function registered

@@ -5,3 +5,4 @@ __pycache__*
 images/*/executor
 *.backup
 default.etcd
+examples/benchmarks/model/my.weights.h5
