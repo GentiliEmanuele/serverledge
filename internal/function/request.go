@@ -16,6 +16,7 @@ type Request struct {
 	CanDoOffloading bool
 	Async           bool
 	ReturnOutput    bool
+	FunctionGetTime float64
 }
 
 type RequestQoS struct {
@@ -34,6 +35,7 @@ type ExecutionReport struct {
 	Output         string
 	ExecutionArea  string
 	ExecutionNode  string
+	FunGetTime     float64
 }
 
 type Response struct {

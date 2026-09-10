@@ -67,6 +67,7 @@ func Execute(cont *container.Container, r *scheduledRequest, isWarm bool) error 
 	r.InitTime = initTime + invocationWait.Seconds()
 	r.ExecutionArea = node.LocalNode.Area
 	r.ExecutionNode = node.LocalNode.Key
+	r.ExecutionReport.FunGetTime = r.FunctionGetTime
 
 	node.HandleCompletion(cont, r.Fun)
 
