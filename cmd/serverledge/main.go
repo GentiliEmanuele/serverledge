@@ -13,6 +13,7 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/api"
 	"github.com/serverledge-faas/serverledge/internal/cache"
 	"github.com/serverledge-faas/serverledge/internal/config"
+	"github.com/serverledge-faas/serverledge/internal/container"
 	"github.com/serverledge-faas/serverledge/internal/function"
 	"github.com/serverledge-faas/serverledge/internal/metrics"
 	"github.com/serverledge-faas/serverledge/internal/node"
@@ -34,6 +35,9 @@ func main() {
 
 	// Initialize the function storage
 	function.InitStorage(config.GetString(config.FUNCTION_STORAGE_TYPE, "garage"))
+
+	// Choose the mechanism used for local registry population
+	container.ChooseMechanism(config.GetString(config.PULL_MECHANISM, "base"))
 
 	// register to etcd, this way server is visible to the others under a given local area
 	myArea := config.GetString(config.REGISTRY_AREA, "ROME")

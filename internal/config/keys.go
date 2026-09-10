@@ -173,3 +173,4 @@ const LOAD_BALANCER_POLICY = "loadbalancer.policy"
 const LOAD_BALANCER_TARGET_UPDATE_INTERVAL = "loadbalancer.targets.interval"
 
 const FUNCTION_STORAGE_TYPE = "function.storage.type"
+const PULL_MECHANISM = "pull.mechanism"
