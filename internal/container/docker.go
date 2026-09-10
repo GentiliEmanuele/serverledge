@@ -118,7 +118,7 @@ func (cf *DockerFactory) HasImage(img string) bool {
 }
 
 func (cf *DockerFactory) PullImage(img string) (string, error) {
-	return mechanismType.PullImage(cf, img)
+	return getMechanismType().PullImage(cf, img)
 }
 
 func (cf *DockerFactory) GetIPAddress(contID ContainerID) (string, error) {

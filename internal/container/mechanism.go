@@ -27,6 +27,16 @@ func ChooseMechanism(conf string) {
 	}
 }
 
+// getMechanismType return the chosen mechanism type. If mechanismType is null return base push.
+// It's possible that mechanism type is null because in test scope the configuration file is not read
+func getMechanismType() Mechanism {
+	if mechanismType == nil {
+		return &BasePush{}
+	}
+
+	return mechanismType
+}
+
 func getLocalRegistryAddress() (string, error) {
 	cli, err := utils.GetEtcdClient()
 	if err != nil {
